@@ -1,5 +1,10 @@
 use std::fmt::{Debug, Error, Formatter};
 
+// TODO add Error?
+pub enum Statement {
+    Assign(String, Box<Expr>),
+}
+
 pub enum Expr {
     Number(i32),
     Literal(String),
@@ -25,6 +30,15 @@ pub enum PfxOpcode {
 #[derive(Copy, Clone)]
 pub enum SfxOpcode {
     Fact,
+}
+
+impl Debug for Statement {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        use self::Statement::*;
+        match self {
+            Assign(id, e) => write!(fmt, "{id} = {:?};", e),
+        }
+    }
 }
 
 impl Debug for Expr {
