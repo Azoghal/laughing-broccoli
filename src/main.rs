@@ -27,30 +27,30 @@ fn main() {
     error!("Didn't do anything");
 }
 
-// #[cfg(test)]
-// fn parse_expr_and_check(input: &str, output: &str) {
-//     let mut errors = Vec::new();
-//     assert_eq!(
-//         &format!(
-//             "{:?}",
-//             bassoon::ExprParser::new()
-//                 .parse(&mut errors, input)
-//                 .unwrap()
-//         ),
-//         output
-//     );
-// }
+#[cfg(test)]
+fn parse_expr_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::ExprParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
 
-// #[test]
-// fn expr_factor_ops() {
-//     parse_expr_and_check("1 + 2", "(1 + 2)");
-//     parse_expr_and_check("(1 + 2)", "(1 + 2)");
-//     parse_expr_and_check("3 * (1 + 2)", "(3 * (1 + 2))");
-//     parse_expr_and_check("(1 + 2) * 3", "((1 + 2) * 3)");
-//     parse_expr_and_check("3 * 1 + 2", "((3 * 1) + 2)");
-//     parse_expr_and_check("(1 + 3 * 2)", "(1 + (3 * 2))");
-//     parse_expr_and_check("1 + \"abc def\"", "(1 + \"abc def\")");
-// }
+#[test]
+fn expr_factor_ops() {
+    parse_expr_and_check("1 + 2", "(1 + 2)");
+    parse_expr_and_check("(1 + 2)", "(1 + 2)");
+    parse_expr_and_check("3 * (1 + 2)", "(3 * (1 + 2))");
+    parse_expr_and_check("(1 + 2) * 3", "((1 + 2) * 3)");
+    parse_expr_and_check("3 * 1 + 2", "((3 * 1) + 2)");
+    parse_expr_and_check("(1 + 3 * 2)", "(1 + (3 * 2))");
+    parse_expr_and_check("1 + \"abc def\"", "(1 + \"abc def\")");
+}
 
 // #[test]
 // fn errorworks() {

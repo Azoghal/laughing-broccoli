@@ -5,13 +5,13 @@ use lalrpop_util::ParseError;
 
 grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>); 
 
-match{
-    r"[0-9]+\.[0-9]*" => Float,
-    r"[0-9]+" => Int,
-}else{
-    r"\w+" => Id,
-    _ // Includes all our keywords - as they are string literals they will be matched first
-}
+// match{
+//     r"[0-9]+\.[0-9]*" => Float,
+//     r"[0-9]+" => Int,
+// }else{
+//     r"\w+" => Id,
+//     _ // Includes all our keywords - as they are string literals they will be matched first
+// }
 
 Tier<Op, NextTier>: Box<Expr> = {
     Tier<Op, NextTier> Op NextTier => Box::new(Expr::BinOp(<>)),
@@ -24,6 +24,7 @@ Factor = Tier<FactorOp, Unary>;
 Unary: Box<Expr> = {
     PfxOp Term => Box::new(Expr::PfxUnOp(<>)),
     Term SfxOp => Box::new(Expr::SfxUnOp(<>)),
+    Term,
 };
 
 
