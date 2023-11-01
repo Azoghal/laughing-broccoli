@@ -20,12 +20,15 @@ Tier<Op, NextTier>: Box<Expr> = {
 
 // Unary binds most tightly, +- most loosely
 pub Expr = Tier<ExprOp, Factor>;
-Factor = Tier<FactorOp, Unary>;
-Unary: Box<Expr> = {
-    PfxOp Unary => Box::new(Expr::PfxUnOp(<>)),
-    Unary SfxOp => Box::new(Expr::SfxUnOp(<>)),
-    Term,
+Factor = Tier<FactorOp, SfxUnary>;
+SfxUnary: Box<Expr> = {
+    SfxUnary SfxOp => Box::new(Expr::SfxUnOp(<>)),
+    PfxUnary,
 };
+PfxUnary: Box<Expr> = {
+    PfxOp PfxUnary => Box::new(Expr::PfxUnOp(<>)),
+    Term,
+}
 
 
 ExprOp: BinOpcode = { 

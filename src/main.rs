@@ -87,9 +87,5 @@ fn unary() {
     parse_expr_and_check("!1", "!(1)");
     parse_expr_and_check("1!", "(1)!");
     parse_expr_and_check("5-1!", "(5 - (1)!)");
-    // TODO fix this case - broke the parser by allowing arbitrary number of unary ops
-    // Maybe we want to limit to just one - and specify the precedence of prefix vs suffix
-    // I think we probably want prefix to bind more tightly than suffix... but not sure
-    // Do many languages provide suffix operators...
     parse_expr_and_check("!1!", "(!(1))!");
 }
