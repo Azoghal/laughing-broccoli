@@ -52,31 +52,44 @@ fn expr_factor_ops() {
     parse_expr_and_check("1 + \"abc def\"", "(1 + \"abc def\")");
 }
 
-// #[test]
-// fn errorworks() {
-//     // use lalrpop_util::ParseError;
-//     let mut errors = Vec::new();
-//     let expr = bassoon::ExprParser::new().parse(&mut errors, "2147483648");
-//     println!("{:?}", expr);
-//     assert!(expr.is_err());
-//     // assert_eq!(
-//     //     expr.unwrap_err(),
-//     //     ParseError::User {
-//     //         error: PracticeError::OutOfRange
-//     //     }
-//     // );
-// }
+#[test]
+fn errorworks() {
+    // use lalrpop_util::ParseError;
+    let mut errors = Vec::new();
+    let expr = bassoon::ExprParser::new().parse(&mut errors, "2147483648");
+    println!("{:?}", expr);
+    assert!(expr.is_err());
+    // assert_eq!(
+    //     expr.unwrap_err(),
+    //     ParseError::User {
+    //         error: PracticeError::OutOfRange
+    //     }
+    // );
+}
 
-// #[test]
-// fn multierror() {
-//     parse_expr_and_check("22 + + 3", "((22 + error) + 3)");
-//     parse_expr_and_check("22 23 + 3", "(error + 3)");
-// }
+#[test]
+fn multierror() {
+    parse_expr_and_check("22 + + 3", "((22 + error) + 3)");
+    parse_expr_and_check("22 23 + 3", "(error + 3)");
+}
 
-// #[test]
-// fn string() {
-//     let mut errors = Vec::new();
-//     let expr = bassoon::ExprParser::new().parse(&mut errors, r#""abc def""#);
-//     println!("{:?}", expr);
-//     assert_eq!(&format!("{:?}", expr.unwrap()), "\"abc def\"");
-// }
+#[test]
+fn string() {
+    let mut errors = Vec::new();
+    let expr = bassoon::ExprParser::new().parse(&mut errors, r#""abc def""#);
+    println!("{:?}", expr);
+    assert_eq!(&format!("{:?}", expr.unwrap()), "\"abc def\"");
+}
+
+#[test]
+fn unary() {
+    parse_expr_and_check("1", "1");
+    parse_expr_and_check("!1", "!(1)");
+    parse_expr_and_check("1!", "(1)!");
+    parse_expr_and_check("5-1!", "(5 - (1)!)");
+    // TODO fix this case - broke the parser by allowing arbitrary number of unary ops
+    // Maybe we want to limit to just one - and specify the precedence of prefix vs suffix
+    // I think we probably want prefix to bind more tightly than suffix... but not sure
+    // Do many languages provide suffix operators...
+    parse_expr_and_check("!1!", "(!(1))!");
+}

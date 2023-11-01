@@ -22,8 +22,8 @@ Tier<Op, NextTier>: Box<Expr> = {
 pub Expr = Tier<ExprOp, Factor>;
 Factor = Tier<FactorOp, Unary>;
 Unary: Box<Expr> = {
-    PfxOp Term => Box::new(Expr::PfxUnOp(<>)),
-    Term SfxOp => Box::new(Expr::SfxUnOp(<>)),
+    PfxOp Unary => Box::new(Expr::PfxUnOp(<>)),
+    Unary SfxOp => Box::new(Expr::SfxUnOp(<>)),
     Term,
 };
 
