@@ -4,7 +4,8 @@ use tracing_subscriber::FmtSubscriber;
 
 use lalrpop_util::lalrpop_mod;
 
-lalrpop_mod!(pub calculator1);
+mod ast;
+lalrpop_mod!(pub bassoon);
 
 #[derive(Parser)]
 #[command(author, version, about, long_about=None)]
@@ -26,10 +27,56 @@ fn main() {
     error!("Didn't do anything");
 }
 
-#[test]
-fn calculator1() {
-    assert!(calculator1::TermParser::new().parse("22").is_ok());
-    assert!(calculator1::TermParser::new().parse("(22)").is_ok());
-    assert!(calculator1::TermParser::new().parse("((((22))))").is_ok());
-    assert!(calculator1::TermParser::new().parse("((22)").is_err());
-}
+// #[cfg(test)]
+// fn parse_expr_and_check(input: &str, output: &str) {
+//     let mut errors = Vec::new();
+//     assert_eq!(
+//         &format!(
+//             "{:?}",
+//             bassoon::ExprParser::new()
+//                 .parse(&mut errors, input)
+//                 .unwrap()
+//         ),
+//         output
+//     );
+// }
+
+// #[test]
+// fn expr_factor_ops() {
+//     parse_expr_and_check("1 + 2", "(1 + 2)");
+//     parse_expr_and_check("(1 + 2)", "(1 + 2)");
+//     parse_expr_and_check("3 * (1 + 2)", "(3 * (1 + 2))");
+//     parse_expr_and_check("(1 + 2) * 3", "((1 + 2) * 3)");
+//     parse_expr_and_check("3 * 1 + 2", "((3 * 1) + 2)");
+//     parse_expr_and_check("(1 + 3 * 2)", "(1 + (3 * 2))");
+//     parse_expr_and_check("1 + \"abc def\"", "(1 + \"abc def\")");
+// }
+
+// #[test]
+// fn errorworks() {
+//     // use lalrpop_util::ParseError;
+//     let mut errors = Vec::new();
+//     let expr = bassoon::ExprParser::new().parse(&mut errors, "2147483648");
+//     println!("{:?}", expr);
+//     assert!(expr.is_err());
+//     // assert_eq!(
+//     //     expr.unwrap_err(),
+//     //     ParseError::User {
+//     //         error: PracticeError::OutOfRange
+//     //     }
+//     // );
+// }
+
+// #[test]
+// fn multierror() {
+//     parse_expr_and_check("22 + + 3", "((22 + error) + 3)");
+//     parse_expr_and_check("22 23 + 3", "(error + 3)");
+// }
+
+// #[test]
+// fn string() {
+//     let mut errors = Vec::new();
+//     let expr = bassoon::ExprParser::new().parse(&mut errors, r#""abc def""#);
+//     println!("{:?}", expr);
+//     assert_eq!(&format!("{:?}", expr.unwrap()), "\"abc def\"");
+// }

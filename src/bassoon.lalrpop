@@ -1,0 +1,65 @@
+use std::str::FromStr;
+use crate::ast::{Expr, BinOpcode, PfxOpcode, SfxOpcode};
+use lalrpop_util::ErrorRecovery; // Also needed for getting more than one error
+use lalrpop_util::ParseError;
+
+grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>); 
+
+match{
+    r"[0-9]+\.[0-9]*" => Float,
+    r"[0-9]+" => Int,
+}else{
+    r"\w+" => Id,
+    _ // Includes all our keywords - as they are string literals they will be matched first
+}
+
+Tier<Op, NextTier>: Box<Expr> = {
+    Tier<Op, NextTier> Op NextTier => Box::new(Expr::BinOp(<>)),
+    NextTier,
+}
+
+// Unary binds most tightly, +- most loosely
+pub Expr = Tier<ExprOp, Factor>;
+Factor = Tier<FactorOp, Unary>;
+Unary: Box<Expr> = {
+    PfxOp Term => Box::new(Expr::PfxUnOp(<>)),
+    Term SfxOp => Box::new(Expr::SfxUnOp(<>)),
+};
+
+
+ExprOp: BinOpcode = { 
+    "+" => BinOpcode::Add,
+    "-" => BinOpcode::Sub,
+};
+
+FactorOp: BinOpcode = {
+    "*" => BinOpcode::Mul,
+    "/" => BinOpcode::Div,
+};
+
+// TODO add minus
+PfxOp: PfxOpcode = {
+    "!" => PfxOpcode::Not,
+};
+
+SfxOp: SfxOpcode = {
+    "!" => SfxOpcode::Fact,
+};
+
+Term: Box<Expr> = {
+    Num => Box::new(Expr::Number(<>)),
+    Lit => Box::new(Expr::Literal(<>)),
+    "(" <Expr> ")",
+    ! => {errors.push(<>); Box::new(Expr::Error)}, 
+};
+
+// TODO work out - is it possible to put these errors into errors as well?
+Num: i32 = {
+    r"[0-9]+" =>? i32::from_str(<>).map_err(|_| ParseError::User{
+        error: "bob done make an number demasiado grande"
+    })
+};
+
+Lit: String = {
+    <l:r#""[a-z ]*""#> => l[1..l.len()-1].into()
+};
