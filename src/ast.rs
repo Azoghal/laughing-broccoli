@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Error, Formatter};
 
 // TODO add Error?
-pub enum Statement {
+pub enum ASTStatement {
     Assign(String, Box<Expr>),
 }
 
@@ -32,9 +32,9 @@ pub enum SfxOpcode {
     Fact,
 }
 
-impl Debug for Statement {
+impl Debug for ASTStatement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        use self::Statement::*;
+        use self::ASTStatement::*;
         match self {
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
         }

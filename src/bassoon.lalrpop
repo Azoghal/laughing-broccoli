@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::ast::{Statement, Expr, BinOpcode, PfxOpcode, SfxOpcode};
+use crate::ast::{ASTStatement, Expr, BinOpcode, PfxOpcode, SfxOpcode};
 use lalrpop_util::ErrorRecovery; // Also needed for getting more than one error
 use lalrpop_util::ParseError;
 
@@ -14,20 +14,18 @@ match{
     _ // Includes all our keywords - as they are string literals they will be matched first
 }
 
-// Semicolon<T>: Vec<T> = {
-//     // pick a mutable vector of the T, elements, and then check for an end element 
-//     <mut v:(<T> ";")*> <e:T?> => match e{
-//         None => v,
-//         Some(t) => {v.push(t); v}
-//     }
-// };
+pub Statements: Vec<Box<ASTStatement>> = {
+    Statement*
+};
 
-// pub Statements = Semicolon<Stmnt>
+pub Statement: Box<ASTStatement> = {
+    <Stmnt> ";"
+};
 
-// TODO replace "=" with generic opcode
+// TODO replace "=" with generic opcode?
 // TODO replace Statement::Assign with e.g. action 
-pub Stmnt: Box<Statement> = {
-    <id:Id> "=" <e:Expr> <sc:";"?> => Box::new(Statement::Assign(id.into(), e))
+Stmnt: Box<ASTStatement> = {
+    <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e))
 };
 
 Tier<Op, NextTier>: Box<Expr> = {

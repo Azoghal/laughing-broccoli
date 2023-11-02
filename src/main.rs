@@ -41,20 +41,6 @@ fn parse_expr_and_check(input: &str, output: &str) {
     );
 }
 
-#[cfg(test)]
-fn parse_statement_and_check(input: &str, output: &str) {
-    let mut errors = Vec::new();
-    assert_eq!(
-        &format!(
-            "{:?}",
-            bassoon::StmntParser::new()
-                .parse(&mut errors, input)
-                .unwrap()
-        ),
-        output
-    );
-}
-
 #[test]
 fn expr_factor_ops() {
     parse_expr_and_check("1 + 2", "(1 + 2)");
@@ -104,13 +90,44 @@ fn unary() {
     parse_expr_and_check("!1!", "(!(1))!");
 }
 
+#[cfg(test)]
+fn parse_statement_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::StatementParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
+
 #[test]
 fn statement() {
     // TODO extend these as more statements added
     parse_statement_and_check("bob = 3;", "bob = 3;")
 }
 
+#[cfg(test)]
+fn parse_statements_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::StatementsParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
+
 #[test]
 fn statements() {
-    // TODO unimplemented.
+    // TODO add tests that poorly formatted sequence of statements fails.
+    parse_statements_and_check("", "[]");
+    parse_statements_and_check("bob = 3;", "[bob = 3;]");
+    parse_statements_and_check("bob = 3; bill = 4;", "[bob = 3;, bill = 4;]");
 }
