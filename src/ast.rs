@@ -1,8 +1,11 @@
 use std::fmt::{Debug, Error, Formatter};
 
 // TODO add Error?
+// TODO make ASTStatements
 pub enum ASTStatement {
+    CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
+    If(Box<Expr>, Box<ASTStatement>),
 }
 
 pub enum Expr {
@@ -32,11 +35,17 @@ pub enum SfxOpcode {
     Fact,
 }
 
+// Control Flow
+
+// Debug impls
+
 impl Debug for ASTStatement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::ASTStatement::*;
         match self {
+            CodeBlock(stmts) => write!(fmt, "{{ {:?} }}", stmts),
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
+            If(cond, work) => write!(fmt, "if {:?} {:?}", cond, work),
         }
     }
 }

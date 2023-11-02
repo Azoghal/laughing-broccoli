@@ -18,14 +18,20 @@ pub Statements: Vec<Box<ASTStatement>> = {
     Statement*
 };
 
+pub CodeBlock: Box<ASTStatement> = {
+    "{" <Statements> "}" => Box::new(ASTStatement::CodeBlock(<>))
+}
+
 pub Statement: Box<ASTStatement> = {
     <Stmnt> ";"
 };
 
 // TODO replace "=" with generic opcode?
 // TODO replace Statement::Assign with e.g. action 
+// TODO make if a named keyword?
 Stmnt: Box<ASTStatement> = {
-    <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e))
+    <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
+    "if" <Expr> <CodeBlock> => Box::new(ASTStatement::If(<>))
 };
 
 Tier<Op, NextTier>: Box<Expr> = {

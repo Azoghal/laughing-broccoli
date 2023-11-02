@@ -131,3 +131,22 @@ fn statements() {
     parse_statements_and_check("bob = 3;", "[bob = 3;]");
     parse_statements_and_check("bob = 3; bill = 4;", "[bob = 3;, bill = 4;]");
 }
+
+#[cfg(test)]
+fn parse_codeblock_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::CodeBlockParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
+#[test]
+fn codeblocks() {
+    // TODO impl fmt for ASTCodeBlock
+    parse_codeblock_and_check("{bob = 1; bill=2;}", "{ [bob = 1;, bill = 2;] }")
+}
