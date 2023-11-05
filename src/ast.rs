@@ -1,19 +1,13 @@
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Display, Error, Formatter};
 
-pub enum Helpers {
-    CondBlock(Box<Expr>, Box<ASTStatement>),
-}
+pub struct CondBlock(pub Box<Expr>, pub Box<ASTStatement>);
 
 // TODO add Error?
 // TODO turn (Box<Expr>, Box<ASTStatement>) into a conditioned-block type or something
 pub enum ASTStatement {
     CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
-    If(
-        Helpers::CondBlock,
-        Option<Vec<Helpers::CondBlock>>,
-        Option<Box<ASTStatement>>,
-    ),
+    If(CondBlock, Option<Vec<CondBlock>>, Option<Box<ASTStatement>>),
 }
 
 pub enum Expr {
@@ -47,9 +41,8 @@ pub enum SfxOpcode {
 
 // Debug impls
 
-impl fmt::Display for Helpers {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Helpers::*;
+impl Display for CondBlock {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self {
             CondBlock(cond, work) => write!(fmt, "if {:?} {:?}", cond, work),
         }
@@ -59,17 +52,17 @@ impl fmt::Display for Helpers {
 impl Debug for ASTStatement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::ASTStatement::*;
-        use self::Helpers::CondBlock;
         match self {
             CodeBlock(stmts) => write!(fmt, "{{ {:?} }}", stmts),
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
-            If(i, eli, el) => {
-                elifs = match eli {
-                    Some(v) => v.map(|cb: CondBlock| cb.to_string()).join(""),
-                    None => "",
-                };
-                write!(fmt, "{:?} {elifs} else {:?}", i, el)
-            }
+            // If(i, eli, el) => {
+            //     elifs = match eli {
+            //         Some(v) => v.map(|cb: CondBlock| cb.to_string()).join(""),
+            //         None => "",
+            //     };
+            //     write!(fmt, "{:?} {elifs} else {:?}", i, el)
+            // }
+            If(i, eli, el) => write!(fmt, "not implemented debug for if yet."),
         }
     }
 }
