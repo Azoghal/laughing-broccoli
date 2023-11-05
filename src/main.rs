@@ -153,5 +153,17 @@ fn codeblocks() {
 
 #[test]
 fn ifs() {
-    parse_statement_and_check("if 2 {bob=3;}", "not implemented debug for if yet.")
+    parse_statement_and_check("if 2 {bob=3;}", "if 2 { [bob = 3;] } else None");
+    parse_statement_and_check(
+        "if 2 {bob=3;} else {bill=4;}",
+        "if 2 { [bob = 3;] } else Some({ [bill = 4;] })",
+    );
+    parse_statement_and_check(
+        "if 2 {bob=3;} else if 3 {bill=4;} else {jill=4;}",
+        "if 2 { [bob = 3;] } else if 3 { [bill = 4;] } else Some({ [jill = 4;] })",
+    );
+    parse_statement_and_check(
+        "if 2 {bob=3;} else if 3 {bill=4;} else if 4 {jill=4;} else {jerome=5;}",
+        "if 2 { [bob = 3;] } else if 3 { [bill = 4;] } else if 4 { [jill = 4;] } else Some({ [jerome = 5;] })",
+    );
 }

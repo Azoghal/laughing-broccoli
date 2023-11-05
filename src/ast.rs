@@ -53,16 +53,18 @@ impl Debug for ASTStatement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::ASTStatement::*;
         match self {
-            CodeBlock(stmts) => write!(fmt, "{{ {:?} }}", stmts),
+            CodeBlock(stmts) => {
+                write!(fmt, "{{ {:?} }}", stmts)
+            } // TODO fix this to get rid of square brackets
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
-            // If(i, eli, el) => {
-            //     elifs = match eli {
-            //         Some(v) => v.map(|cb: CondBlock| cb.to_string()).join(""),
-            //         None => "",
-            //     };
-            //     write!(fmt, "{:?} {elifs} else {:?}", i, el)
-            // }
-            If(i, eli, el) => write!(fmt, "not implemented debug for if yet."),
+            If(i, eli, el) => {
+                let elifs: Vec<String> = eli.iter().map(|cb| format!("else {cb}")).collect();
+                let mut elifss = elifs.join(" ");
+                if !elifs.is_empty() {
+                    elifss = format!(" {elifss}");
+                }
+                write!(fmt, "{i}{elifss} else {:?}", el)
+            }
         }
     }
 }
