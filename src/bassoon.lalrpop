@@ -29,9 +29,10 @@ pub Statement: Box<ASTStatement> = {
 // TODO replace "=" with generic opcode?
 // TODO replace Statement::Assign with e.g. action 
 // TODO make if a named keyword?
+// TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
-    "if" <Expr> <CodeBlock> => Box::new(ASTStatement::If(<>))
+    "if" <Expr> <CodeBlock> (("else if" <Expr> <CodeBlock>)*)? ("else" <CodeBlock>)?  => Box::new(ASTStatement::If(<>))
 };
 
 Tier<Op, NextTier>: Box<Expr> = {

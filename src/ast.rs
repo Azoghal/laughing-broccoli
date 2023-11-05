@@ -1,11 +1,19 @@
 use std::fmt::{Debug, Error, Formatter};
 
+pub enum Helpers {
+    CondBlock(Box<Expr>, Box<ASTStatement>),
+}
+
 // TODO add Error?
-// TODO make ASTStatements
+// TODO turn (Box<Expr>, Box<ASTStatement>) into a conditioned-block type or something
 pub enum ASTStatement {
     CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
-    If(Box<Expr>, Box<ASTStatement>),
+    If(
+        Helpers::CondBlock,
+        Option<Vec<Helpers::CondBlock>>,
+        Option<Box<ASTStatement>>,
+    ),
 }
 
 pub enum Expr {
@@ -39,13 +47,29 @@ pub enum SfxOpcode {
 
 // Debug impls
 
+impl fmt::Display for Helpers {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Helpers::*;
+        match self {
+            CondBlock(cond, work) => write!(fmt, "if {:?} {:?}", cond, work),
+        }
+    }
+}
+
 impl Debug for ASTStatement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::ASTStatement::*;
+        use self::Helpers::CondBlock;
         match self {
             CodeBlock(stmts) => write!(fmt, "{{ {:?} }}", stmts),
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
-            If(cond, work) => write!(fmt, "if {:?} {:?}", cond, work),
+            If(i, eli, el) => {
+                elifs = match eli {
+                    Some(v) => v.map(|cb: CondBlock| cb.to_string()).join(""),
+                    None => "",
+                };
+                write!(fmt, "{:?} {elifs} else {:?}", i, el)
+            }
         }
     }
 }
