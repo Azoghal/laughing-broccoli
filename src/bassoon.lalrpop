@@ -9,6 +9,8 @@ grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 match{
     // r"[0-9]+\.[0-9]*" => Float,
     r"[0-9]+" => Int,
+    "if",
+    "else",
 }else{
     r"\w+" => Id,
     _ // Includes all our keywords - as they are string literals they will be matched first
@@ -23,7 +25,12 @@ pub CodeBlock: Box<ASTStatement> = {
 }
 
 pub Statement: Box<ASTStatement> = {
-    <Stmnt> ";"
+    <Stmnt> ";",
+    "if" <ic:Expr> <iw:CodeBlock> <eis: ("else if" <Expr> <CodeBlock>)*> <ecb:("else" <CodeBlock>)?> => {
+        let icb = CondBlock(ic, iw);
+        let ei_cbs = eis.into_iter().map(|(e,w)| CondBlock(e,w)).collect();  // TODO can this just use condblock as a function rather than using in a closure
+        Box::new(ASTStatement::If(icb, ei_cbs, ecb))
+    },
 };
 
 // TODO replace "=" with generic opcode?
@@ -32,18 +39,6 @@ pub Statement: Box<ASTStatement> = {
 // TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
-    "if" <Expr> <CodeBlock> => Box::new(ASTStatement::If(CondBlock(<>), None, None)),
-    "if" <ic:Expr> <iw:CodeBlock> "else if" <ei:(<Expr> <CodeBlock>)> => {
-        let icb = CondBlock(ic, iw);
-        let (eic, eiw) = ei;
-        let eicb = CondBlock(eic, eiw);
-        Box::new(ASTStatement::If(icb, Some(vec![eicb]), None))
-    },
-    // "if" <i:(<Expr> <CodeBlock>)> <elifs:(("else if" <Expr> <CodeBlock>)*)?> <el:("else" <CodeBlock>)?>  => {
-    //     icb: = CondBlock(i);
-    //     elifcbs = elifs.map(|elif| CondBlock(elif));
-    //     Box::new(ASTStatement::If(icb, elifcbs, el))
-    // }
 };
 
 Tier<Op, NextTier>: Box<Expr> = {

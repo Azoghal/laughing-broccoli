@@ -150,3 +150,8 @@ fn codeblocks() {
     // TODO impl fmt for ASTCodeBlock
     parse_codeblock_and_check("{bob = 1; bill=2;}", "{ [bob = 1;, bill = 2;] }")
 }
+
+#[test]
+fn ifs() {
+    parse_statement_and_check("if 2 {bob=3;}", "not implemented debug for if yet.")
+}

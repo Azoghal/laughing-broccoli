@@ -7,7 +7,7 @@ pub struct CondBlock(pub Box<Expr>, pub Box<ASTStatement>);
 pub enum ASTStatement {
     CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
-    If(CondBlock, Option<Vec<CondBlock>>, Option<Box<ASTStatement>>),
+    If(CondBlock, Vec<CondBlock>, Option<Box<ASTStatement>>),
 }
 
 pub enum Expr {
