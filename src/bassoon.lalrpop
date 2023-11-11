@@ -16,6 +16,7 @@ match{
     "define",
     "gives",
     "as",
+    "of",
     "int",
     "float",
 }else{
@@ -48,7 +49,7 @@ pub Statement: Box<ASTStatement> = {
 // TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
-    // <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Intlstn(id.into(),))
+    <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Init(id.into(), t, e))
 };
 
 Tier<Op, NextTier>: Box<Expr> = {
@@ -97,7 +98,7 @@ SfxOp: SfxOpcode = {
 Term: Box<Expr> = {
     Num => Box::new(Expr::Number(<>)),
     Lit => Box::new(Expr::Literal(<>)),
-    Id => Box::new(Expr::Id(<>.to_string())),
+    Id => Box::new(Expr::Id(<>.into())),
     "(" <Expr> ")",
     ! => {errors.push(<>); Box::new(Expr::Error)}, 
 };
@@ -116,5 +117,5 @@ Lit: String = {
 pub Type: Box<ASTType> = {
     "int" => Box::new(ASTType::Int),
     "float" => Box::new(ASTType::Float),
-    Id => Box::new(ASTType::Custom(<>.to_string()))
+    Id => Box::new(ASTType::Custom(<>.into()))
 };
