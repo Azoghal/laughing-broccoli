@@ -176,3 +176,11 @@ fn ifs() {
 fn whiles() {
     parse_statement_and_check("while 3 { bob = 4; }", "while (3) { [bob = 4;] }")
 }
+
+#[test]
+fn fors() {
+    parse_statement_and_check(
+        "for (i=3; i<5; i=i+1) { bob = 4; }",
+        "for ( i = 3; ; (i < 5) ; i = (i + 1); ) { [bob = 4;] }",
+    )
+}

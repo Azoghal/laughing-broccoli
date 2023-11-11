@@ -36,7 +36,8 @@ pub Statement: Box<ASTStatement> = {
         let ei_cbs = eis.into_iter().map(|(e,w)| CondBlock(e,w)).collect();  // TODO can this just use condblock as a function rather than using in a closure
         Box::new(ASTStatement::If(icb, ei_cbs, ecb))
     },
-    "while" <Expr> <CodeBlock> => Box::new(ASTStatement::While(<>))
+    "while" <Expr> <CodeBlock> => Box::new(ASTStatement::While(<>)),
+    "for" "(" <Stmnt> ";" <Expr> ";" <Stmnt> ")" <CodeBlock> => Box::new(ASTStatement::For(<>))
 };
 
 // TODO replace "=" with generic opcode?
@@ -53,7 +54,8 @@ Tier<Op, NextTier>: Box<Expr> = {
 };
 
 // Unary binds most tightly, +- most loosely
-pub Expr = Tier<ExprOp, Factor>;
+pub Expr = Tier<BoolOp, Arith>;
+Arith = Tier<ArithOp, Factor>;
 Factor = Tier<FactorOp, SfxUnary>;
 SfxUnary: Box<Expr> = {
     SfxUnary SfxOp => Box::new(Expr::SfxUnOp(<>)),
@@ -64,8 +66,12 @@ PfxUnary: Box<Expr> = {
     Term,
 }
 
+BoolOp: BinOpcode = {
+    ">" => BinOpcode::GreaterThan,
+    "<" => BinOpcode::LessThan
+}
 
-ExprOp: BinOpcode = { 
+ArithOp: BinOpcode = { 
     "+" => BinOpcode::Add,
     "-" => BinOpcode::Sub,
 };
@@ -88,6 +94,7 @@ SfxOp: SfxOpcode = {
 Term: Box<Expr> = {
     Num => Box::new(Expr::Number(<>)),
     Lit => Box::new(Expr::Literal(<>)),
+    Id => Box::new(Expr::Id(<>.to_string())),
     "(" <Expr> ")",
     ! => {errors.push(<>); Box::new(Expr::Error)}, 
 };

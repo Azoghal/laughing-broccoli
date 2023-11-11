@@ -9,11 +9,18 @@ pub enum ASTStatement {
     Assign(String, Box<Expr>),
     If(CondBlock, Vec<CondBlock>, Option<Box<ASTStatement>>),
     While(Box<Expr>, Box<ASTStatement>),
+    For(
+        Box<ASTStatement>,
+        Box<Expr>,
+        Box<ASTStatement>,
+        Box<ASTStatement>,
+    ),
 }
 
 pub enum Expr {
     Number(i32),
     Literal(String),
+    Id(String),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
     PfxUnOp(PfxOpcode, Box<Expr>),
     SfxUnOp(Box<Expr>, SfxOpcode),
@@ -26,6 +33,8 @@ pub enum BinOpcode {
     Div,
     Add,
     Sub,
+    GreaterThan,
+    LessThan,
 }
 
 #[derive(Copy, Clone)]
@@ -68,6 +77,9 @@ impl Debug for ASTStatement {
                 write!(fmt, "{i}{elifss} else {:?}", el)
             }
             While(cond, work) => write!(fmt, "while ({:?}) {:?}", cond, work),
+            For(init, cond, it, work) => {
+                write!(fmt, "for ( {:?} ; {:?} ; {:?} ) {:?}", init, cond, it, work)
+            }
         }
     }
 }
@@ -78,6 +90,7 @@ impl Debug for Expr {
         match *self {
             Number(n) => write!(fmt, "{:?}", n),
             Literal(ref s) => write!(fmt, "\"{s}\""),
+            Id(ref s) => write!(fmt, "{s}"),
             BinOp(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),
             PfxUnOp(op, ref e) => write!(fmt, "{:?}({:?})", op, e),
             SfxUnOp(ref e, op) => write!(fmt, "({:?}){:?}", e, op),
@@ -94,6 +107,8 @@ impl Debug for BinOpcode {
             Div => write!(fmt, "/"),
             Add => write!(fmt, "+"),
             Sub => write!(fmt, "-"),
+            GreaterThan => write!(fmt, ">"),
+            LessThan => write!(fmt, "<"),
         }
     }
 }
