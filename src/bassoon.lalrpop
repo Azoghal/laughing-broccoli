@@ -11,6 +11,11 @@ match{
     r"[0-9]+" => Int,
     "if",
     "else",
+    "while",
+    "for",
+    "define",
+    "gives",
+    "as",
 }else{
     r"\w+" => Id,
     _ // Includes all our keywords - as they are string literals they will be matched first
@@ -31,6 +36,7 @@ pub Statement: Box<ASTStatement> = {
         let ei_cbs = eis.into_iter().map(|(e,w)| CondBlock(e,w)).collect();  // TODO can this just use condblock as a function rather than using in a closure
         Box::new(ASTStatement::If(icb, ei_cbs, ecb))
     },
+    "while" <Expr> <CodeBlock> => Box::new(ASTStatement::While(<>))
 };
 
 // TODO replace "=" with generic opcode?
@@ -72,6 +78,7 @@ FactorOp: BinOpcode = {
 // TODO add minus
 PfxOp: PfxOpcode = {
     "!" => PfxOpcode::Not,
+    "-" => PfxOpcode::Minus
 };
 
 SfxOp: SfxOpcode = {

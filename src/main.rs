@@ -166,4 +166,13 @@ fn ifs() {
         "if 2 {bob=3;} else if 3 {bill=4;} else if 4 {jill=4;} else {jerome=5;}",
         "if 2 { [bob = 3;] } else if 3 { [bill = 4;] } else if 4 { [jill = 4;] } else Some({ [jerome = 5;] })",
     );
+    parse_statement_and_check(
+        "if 2 {bob=3;} else if 3 {bill=4;} else if 4 {jill=4;}",
+        "if 2 { [bob = 3;] } else if 3 { [bill = 4;] } else if 4 { [jill = 4;] } else None",
+    );
+}
+
+#[test]
+fn whiles() {
+    parse_statement_and_check("while 3 { bob = 4; }", "while (3) { [bob = 4;] }")
 }

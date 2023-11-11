@@ -8,6 +8,7 @@ pub enum ASTStatement {
     CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
     If(CondBlock, Vec<CondBlock>, Option<Box<ASTStatement>>),
+    While(Box<Expr>, Box<ASTStatement>),
 }
 
 pub enum Expr {
@@ -30,6 +31,7 @@ pub enum BinOpcode {
 #[derive(Copy, Clone)]
 pub enum PfxOpcode {
     Not,
+    Minus,
 }
 
 #[derive(Copy, Clone)]
@@ -65,6 +67,7 @@ impl Debug for ASTStatement {
                 }
                 write!(fmt, "{i}{elifss} else {:?}", el)
             }
+            While(cond, work) => write!(fmt, "while ({:?}) {:?}", cond, work),
         }
     }
 }
@@ -100,6 +103,7 @@ impl Debug for PfxOpcode {
         use self::PfxOpcode::*;
         match *self {
             Not => write!(fmt, "!"),
+            Minus => write!(fmt, "-"),
         }
     }
 }
