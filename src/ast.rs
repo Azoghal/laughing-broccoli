@@ -27,6 +27,12 @@ pub enum Expr {
     Error,
 }
 
+pub enum ASTType {
+    Int,
+    Float,
+    Custom(String),
+}
+
 #[derive(Copy, Clone)]
 pub enum BinOpcode {
     Mul,
@@ -95,6 +101,17 @@ impl Debug for Expr {
             PfxUnOp(op, ref e) => write!(fmt, "{:?}({:?})", op, e),
             SfxUnOp(ref e, op) => write!(fmt, "({:?}){:?}", e, op),
             Error => write!(fmt, "error"),
+        }
+    }
+}
+
+impl Debug for ASTType {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        use self::ASTType::*;
+        match *self {
+            Int => write!(fmt, "t:Int"),
+            Float => write!(fmt, "t:Float"),
+            Custom(ref s) => write!(fmt, "t:c({s})"),
         }
     }
 }

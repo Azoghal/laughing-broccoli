@@ -184,3 +184,24 @@ fn fors() {
         "for ( i = 3; ; (i < 5) ; i = (i + 1); ) { [bob = 4;] }",
     )
 }
+
+#[cfg(test)]
+fn parse_type_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::TypeParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
+
+#[test]
+fn types() {
+    parse_type_and_check("int", "t:Int");
+    parse_type_and_check("float", "t:Float");
+    parse_type_and_check("bob", "t:c(bob)");
+}

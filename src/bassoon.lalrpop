@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::ast::{ASTStatement, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
+use crate::ast::{ASTStatement, ASTType, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
 use lalrpop_util::ErrorRecovery; // Also needed for getting more than one error
 use lalrpop_util::ParseError;
 
@@ -16,6 +16,8 @@ match{
     "define",
     "gives",
     "as",
+    "int",
+    "float",
 }else{
     r"\w+" => Id,
     _ // Includes all our keywords - as they are string literals they will be matched first
@@ -46,6 +48,7 @@ pub Statement: Box<ASTStatement> = {
 // TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
+    // <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Intlstn(id.into(),))
 };
 
 Tier<Op, NextTier>: Box<Expr> = {
@@ -108,4 +111,10 @@ Num: i32 = {
 
 Lit: String = {
     <l:r#""[a-z ]*""#> => l[1..l.len()-1].into()
+};
+
+pub Type: Box<ASTType> = {
+    "int" => Box::new(ASTType::Int),
+    "float" => Box::new(ASTType::Float),
+    Id => Box::new(ASTType::Custom(<>.to_string()))
 };
