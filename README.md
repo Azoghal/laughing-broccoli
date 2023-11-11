@@ -1,4 +1,13 @@
 # laughing-broccoli
 Practice with LALRPOP and Inkwell
 
-test readme change for git using wrong ssh key shenanigans.
+## Parser
+
+**TODO**
+- Add function definitions
+    - return keyword
+- Add type annotation
+    - declaration, initialisation of variables
+- Test
+    - bodmas
+
