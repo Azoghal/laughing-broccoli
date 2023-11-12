@@ -19,6 +19,17 @@ pub enum ASTStatement {
     ),
 }
 
+// Can add e.g. lambdas here?
+// Is it good practice to take a vec of AST statements when only one of the enum variants is valid?
+pub enum ASTFunc {
+    Func(
+        String,
+        Vec<Box<ASTStatement>>,
+        Option<Box<ASTType>>,
+        Box<ASTStatement>,
+    ),
+}
+
 pub enum Expr {
     Number(i32),
     Literal(String),
@@ -59,6 +70,21 @@ pub enum SfxOpcode {
 // Control Flow
 
 // Debug impls
+
+impl Debug for ASTFunc {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        use self::ASTFunc::*;
+        match self {
+            Func(ref name, args, ret_type, body) => {
+                let r = match ret_type {
+                    Some(tipe) => format!("{:?}", tipe),
+                    None => "void".into(),
+                };
+                write!(fmt, "define f:{name}({:?}) gives {r} as {:?}", args, body)
+            }
+        }
+    }
+}
 
 impl Display for CondBlock {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {

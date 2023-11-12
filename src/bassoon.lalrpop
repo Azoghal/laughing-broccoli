@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::ast::{ASTStatement, ASTType, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
+use crate::ast::{ASTFunc, ASTStatement, ASTType, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
 use lalrpop_util::ErrorRecovery; // Also needed for getting more than one error
 use lalrpop_util::ParseError;
 
@@ -21,12 +21,15 @@ match{
     "float",
 }else{
     r"\w+" => Id,
-    _ // Includes all our keywords - as they are string literals they will be matched first
+    _ // Includes all other terminals
 }
 
-// pub Function: Box<ASTFunc> = {
-//     "define" <Id> 
-// }
+// TODO add comma separated decls
+pub Function: Box<ASTFunc> = {
+    "define" <name:Id> "(" <args:(<Decl>)*> ")" <ret_type:("gives" <Type>)?> "as" <body:CodeBlock> => {
+        Box::new(ASTFunc::Func(name.into(), args, ret_type, body))
+    },
+};
 
 pub Statements: Vec<Box<ASTStatement>> = {
     Statement*
@@ -53,9 +56,12 @@ pub Statement: Box<ASTStatement> = {
 // TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
-    <id:Id> "of" <t:Type> => Box::new(ASTStatement::Decl(id.into(), t)),
+    Decl,
     <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Init(id.into(), t, e))
 };
+Decl: Box<ASTStatement> = {
+    <id:Id> "of" <t:Type> => Box::new(ASTStatement::Decl(id.into(), t)),
+}
 
 Tier<Op, NextTier>: Box<Expr> = {
     Tier<Op, NextTier> Op NextTier => Box::new(Expr::BinOp(<>)),

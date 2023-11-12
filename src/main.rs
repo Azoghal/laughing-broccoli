@@ -215,3 +215,29 @@ fn types() {
     parse_type_and_check("float", "t:Float");
     parse_type_and_check("bob", "t:c(bob)");
 }
+
+#[cfg(test)]
+fn parse_func_and_check(input: &str, output: &str) {
+    let mut errors = Vec::new();
+    assert_eq!(
+        &format!(
+            "{:?}",
+            bassoon::FunctionParser::new()
+                .parse(&mut errors, input)
+                .unwrap()
+        ),
+        output
+    );
+}
+
+#[test]
+fn funcs() {
+    parse_func_and_check(
+        "define foo() as {bob=3;}",
+        "define f:foo([]) gives void as { [bob = 3;] }",
+    );
+    parse_func_and_check(
+        "define foo(b of int, c of float) gives int as {bob=3;}",
+        "define f:foo([b of t:Int, c of t:Float]) gives t:Int as { [bob = 3;] }",
+    );
+}
