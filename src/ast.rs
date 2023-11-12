@@ -7,6 +7,7 @@ pub struct CondBlock(pub Box<Expr>, pub Box<ASTStatement>);
 pub enum ASTStatement {
     CodeBlock(Vec<Box<ASTStatement>>),
     Assign(String, Box<Expr>),
+    Decl(String, Box<ASTType>),
     Init(String, Box<ASTType>, Box<Expr>),
     If(CondBlock, Vec<CondBlock>, Option<Box<ASTStatement>>),
     While(Box<Expr>, Box<ASTStatement>),
@@ -75,7 +76,8 @@ impl Debug for ASTStatement {
                 write!(fmt, "{{ {:?} }}", stmts)
             } // TODO fix this to get rid of square brackets
             Assign(id, e) => write!(fmt, "{id} = {:?};", e),
-            Init(id, tipe, e) => write!(fmt, "{id} of {:?} = {:?}", tipe, e),
+            Decl(id, tipe) => write!(fmt, "{id} of {:?};", tipe),
+            Init(id, tipe, e) => write!(fmt, "{id} of {:?} = {:?};", tipe, e),
             If(i, eli, el) => {
                 let elifs: Vec<String> = eli.iter().map(|cb| format!("else {cb}")).collect();
                 let mut elifss = elifs.join(" ");

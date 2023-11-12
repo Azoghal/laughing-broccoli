@@ -186,10 +186,13 @@ fn fors() {
 }
 
 #[test]
-fn inits() {
-    parse_statement_and_check("bob of int = 3;", "bob of t:Int = 3");
-    parse_statement_and_check("bob of float = 3;", "bob of t:Float = 3");
-    parse_statement_and_check("bob of bill = yep;", "bob of t:c(bill) = yep")
+fn inits_and_decls() {
+    parse_statement_and_check("bob of int = 3;", "bob of t:Int = 3;");
+    parse_statement_and_check("bob of float = 3;", "bob of t:Float = 3;");
+    parse_statement_and_check("bob of bill = yep;", "bob of t:c(bill) = yep;");
+    parse_statement_and_check("bob of int;", "bob of t:Int;");
+    parse_statement_and_check("bob of float;", "bob of t:Float;");
+    parse_statement_and_check("bob of bill;", "bob of t:c(bill);")
 }
 
 #[cfg(test)]

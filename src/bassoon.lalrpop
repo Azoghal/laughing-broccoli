@@ -24,6 +24,10 @@ match{
     _ // Includes all our keywords - as they are string literals they will be matched first
 }
 
+// pub Function: Box<ASTFunc> = {
+//     "define" <Id> 
+// }
+
 pub Statements: Vec<Box<ASTStatement>> = {
     Statement*
 };
@@ -49,6 +53,7 @@ pub Statement: Box<ASTStatement> = {
 // TODO make mutliple, simpler if boys.
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
+    <id:Id> "of" <t:Type> => Box::new(ASTStatement::Decl(id.into(), t)),
     <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Init(id.into(), t, e))
 };
 
