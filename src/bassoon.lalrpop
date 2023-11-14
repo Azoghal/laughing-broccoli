@@ -1,5 +1,5 @@
 use std::str::FromStr;
-use crate::ast::{ASTFunc, ASTStatement, ASTType, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
+use crate::ast::{ASTFunc, ASTArgs, ASTStatement, ASTType, CondBlock, Expr, BinOpcode, PfxOpcode, SfxOpcode};
 use lalrpop_util::ErrorRecovery; // Also needed for getting more than one error
 use lalrpop_util::ParseError;
 
@@ -26,9 +26,22 @@ match{
 
 // TODO add comma separated decls
 pub Function: Box<ASTFunc> = {
-    "define" <name:Id> "(" <args:(<Decl>)*> ")" <ret_type:("gives" <Type>)?> "as" <body:CodeBlock> => {
+    "define" <name:Id> "(" <args:Args> ")" <ret_type:("gives" <Type>)?> "as" <body:CodeBlock> => {
         Box::new(ASTFunc::Func(name.into(), args, ret_type, body))
     },
+};
+
+Args: ASTArgs = {
+    <mut decls:(<Decl>",")*> <last:Decl?> =>? {
+        match last{
+            None => {
+                if decls.len() == 0 {Ok(decls)} else{
+                    Err(ParseError::User{error:"possibly trailing comma"})
+                }
+            },
+            Some(l) => {decls.push(l); Ok(decls)}
+        }
+    }
 };
 
 pub Statements: Vec<Box<ASTStatement>> = {

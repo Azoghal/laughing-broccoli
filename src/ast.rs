@@ -30,6 +30,8 @@ pub enum ASTFunc {
     ),
 }
 
+pub struct ASTArgs(Vec<Box<ASTStatement>>);
+
 pub enum Expr {
     Number(i32),
     Literal(String),
@@ -83,6 +85,12 @@ impl Debug for ASTFunc {
                 write!(fmt, "define f:{name}({:?}) gives {r} as {:?}", args, body)
             }
         }
+    }
+}
+
+impl Debug for ASTArgs {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        // TODO
     }
 }
 
