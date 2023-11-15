@@ -22,15 +22,10 @@ pub enum ASTStatement {
 // Can add e.g. lambdas here?
 // Is it good practice to take a vec of AST statements when only one of the enum variants is valid?
 pub enum ASTFunc {
-    Func(
-        String,
-        Vec<Box<ASTStatement>>,
-        Option<Box<ASTType>>,
-        Box<ASTStatement>,
-    ),
+    Func(String, ASTArgs, Option<Box<ASTType>>, Box<ASTStatement>),
 }
 
-pub struct ASTArgs(Vec<Box<ASTStatement>>);
+pub struct ASTArgs(pub Vec<Box<ASTStatement>>);
 
 pub enum Expr {
     Number(i32),
@@ -90,7 +85,13 @@ impl Debug for ASTFunc {
 
 impl Debug for ASTArgs {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        // TODO
+        let ASTArgs(bob) = self;
+        let args: Vec<String> = bob
+            .iter()
+            .map(|s| format!("{:?}", s).trim_end_matches(';').to_string())
+            .collect();
+        let args_s = args.join(", ");
+        write!(fmt, "{args_s}")
     }
 }
 

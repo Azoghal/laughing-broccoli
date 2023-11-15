@@ -35,11 +35,11 @@ Args: ASTArgs = {
     <mut decls:(<Decl>",")*> <last:Decl?> =>? {
         match last{
             None => {
-                if decls.len() == 0 {Ok(decls)} else{
+                if decls.len() == 0 {Ok(ASTArgs(decls))} else{
                     Err(ParseError::User{error:"possibly trailing comma"})
                 }
             },
-            Some(l) => {decls.push(l); Ok(decls)}
+            Some(l) => {decls.push(l); Ok(ASTArgs(decls))}
         }
     }
 };

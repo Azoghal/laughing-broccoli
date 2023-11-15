@@ -234,10 +234,10 @@ fn parse_func_and_check(input: &str, output: &str) {
 fn funcs() {
     parse_func_and_check(
         "define foo() as {bob=3;}",
-        "define f:foo([]) gives void as { [bob = 3;] }",
+        "define f:foo() gives void as { [bob = 3;] }",
     );
     parse_func_and_check(
         "define foo(b of int, c of float) gives int as {bob=3;}",
-        "define f:foo([b of t:Int, c of t:Float]) gives t:Int as { [bob = 3;] }",
+        "define f:foo(b of t:Int, c of t:Float) gives t:Int as { [bob = 3;] }",
     );
 }
