@@ -52,6 +52,7 @@ pub enum BinOpcode {
     Sub,
     GreaterThan,
     LessThan,
+    Equals,
 }
 
 #[derive(Copy, Clone)]
@@ -167,6 +168,7 @@ impl Debug for BinOpcode {
             Sub => write!(fmt, "-"),
             GreaterThan => write!(fmt, ">"),
             LessThan => write!(fmt, "<"),
+            Equals => write!(fmt, "=="),
         }
     }
 }

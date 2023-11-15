@@ -247,6 +247,26 @@ fn funcs() {
     );
 }
 
-// fn a_whole_func(){
-//     parse_func_and_check("define foo(a of int, b of float) gives int as {if a > 4 {}}", output)
-// }
+#[test]
+fn a_whole_func() {
+    parse_func_and_check(
+        "define foo(a of int, b of float) gives int as { \
+        if a > 4 { \
+            bob of int = 3 * (a-4); \
+            return bob * b; \
+        } else if a == 5{ \
+            bill of int = 2;
+            for (i of int = 6; i > 0; i = i - 1){\
+                bill = bill + i * (b / a); \
+            }\
+        } else{\
+            while a > 0{\
+                a = a - 1 * 3;\
+                b = (b - 1) * 3; \
+            }\
+            return a;\
+        }\
+    }",
+        "oh god what have i done",
+    )
+}
