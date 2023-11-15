@@ -195,6 +195,11 @@ fn inits_and_decls() {
     parse_statement_and_check("bob of bill;", "bob of t:c(bill);")
 }
 
+#[test]
+fn returns() {
+    parse_statement_and_check("return 5;", "return 5;")
+}
+
 #[cfg(test)]
 fn parse_type_and_check(input: &str, output: &str) {
     let mut errors = Vec::new();
@@ -241,3 +246,7 @@ fn funcs() {
         "define f:foo(b of t:Int, c of t:Float) gives t:Int as { [bob = 3;] }",
     );
 }
+
+// fn a_whole_func(){
+//     parse_func_and_check("define foo(a of int, b of float) gives int as {if a > 4 {}}", output)
+// }

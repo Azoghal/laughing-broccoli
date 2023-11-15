@@ -16,6 +16,7 @@ match{
     "define",
     "gives",
     "as",
+    "return",
     "of",
     "int",
     "float",
@@ -70,7 +71,8 @@ pub Statement: Box<ASTStatement> = {
 Stmnt: Box<ASTStatement> = {
     <id:Id> "=" <e:Expr> => Box::new(ASTStatement::Assign(id.into(), e)),
     Decl,
-    <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Init(id.into(), t, e))
+    <id:Id> "of" <t:Type> "=" <e:Expr> => Box::new(ASTStatement::Init(id.into(), t, e)),
+    "return" <e:Expr> => Box::new(ASTStatement::Return(e))
 };
 Decl: Box<ASTStatement> = {
     <id:Id> "of" <t:Type> => Box::new(ASTStatement::Decl(id.into(), t)),

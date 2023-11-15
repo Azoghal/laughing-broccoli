@@ -17,6 +17,7 @@ pub enum ASTStatement {
         Box<ASTStatement>,
         Box<ASTStatement>,
     ),
+    Return(Box<Expr>),
 }
 
 // Can add e.g. lambdas here?
@@ -125,6 +126,7 @@ impl Debug for ASTStatement {
             For(init, cond, it, work) => {
                 write!(fmt, "for ( {:?} ; {:?} ; {:?} ) {:?}", init, cond, it, work)
             }
+            Return(val) => write!(fmt, "return {:?};", val),
         }
     }
 }
