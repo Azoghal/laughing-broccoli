@@ -98,7 +98,8 @@ PfxUnary: Box<Expr> = {
 
 BoolOp: BinOpcode = {
     ">" => BinOpcode::GreaterThan,
-    "<" => BinOpcode::LessThan
+    "<" => BinOpcode::LessThan,
+    "==" => BinOpcode::Equals,
 }
 
 ArithOp: BinOpcode = { 

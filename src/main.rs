@@ -53,6 +53,14 @@ fn expr_factor_ops() {
 }
 
 #[test]
+fn bool_ops() {
+    parse_expr_and_check("1 > 2", "(1 > 2)");
+    parse_expr_and_check("(1 < 2)", "(1 < 2)");
+    parse_expr_and_check("3 < (1 + 2)", "(3 < (1 + 2))");
+    parse_expr_and_check("3 < 1 + 2", "(3 < (1 + 2))");
+    parse_expr_and_check("3 == 4", "(3 == 4)");
+}
+#[test]
 fn errorworks() {
     // use lalrpop_util::ParseError;
     let mut errors = Vec::new();
@@ -251,6 +259,7 @@ fn funcs() {
 fn a_whole_func() {
     parse_func_and_check(
         "define foo(a of int, b of float) gives int as { \
+        unused of int = a - 1;
         if a > 4 { \
             bob of int = 3 * (a-4); \
             return bob * b; \
@@ -267,6 +276,25 @@ fn a_whole_func() {
             return a;\
         }\
     }",
-        "oh god what have i done",
+        "define f:foo(a of t:Int, b of t:Float) gives t:Int as { \
+            [\
+                unused of t:Int = (a - 1);, \
+                if (a > 4) { \
+                    [bob of t:Int = (3 * (a - 4));, \
+                    return (bob * b);] \
+                } else if (a == 5) { \
+                    [bill of t:Int = 2;, \
+                    for ( i of t:Int = 6; ; (i > 0) ; i = (i - 1); ) { \
+                        [bill = (bill + (i * (b / a)));] \
+                    }] \
+                } else Some({ \
+                    [while ((a > 0)) { \
+                        [a = (a - (1 * 3));, \
+                        b = ((b - 1) * 3);] \
+                    }, \
+                    return a;] \
+                })\
+            ] \
+        }",
     )
 }
