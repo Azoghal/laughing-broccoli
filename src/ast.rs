@@ -29,7 +29,8 @@ pub enum ASTFunc {
 pub struct ASTArgs(pub Vec<Box<ASTStatement>>);
 
 pub enum Expr {
-    Number(i32),
+    Int(i32),
+    Float(f32),
     Literal(String),
     Id(String),
     BinOp(Box<Expr>, BinOpcode, Box<Expr>),
@@ -136,7 +137,8 @@ impl Debug for Expr {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::Expr::*;
         match *self {
-            Number(n) => write!(fmt, "{:?}", n),
+            Int(i) => write!(fmt, "{:?}", i),
+            Float(f) => write!(fmt, "{:?}", f),
             Literal(ref s) => write!(fmt, "\"{s}\""),
             Id(ref s) => write!(fmt, "{s}"),
             BinOp(ref l, op, ref r) => write!(fmt, "({:?} {:?} {:?})", l, op, r),

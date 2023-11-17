@@ -7,7 +7,7 @@ grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 
 // TODO add strings?
 match{
-    // r"[0-9]+\.[0-9]*" => Float,
+    r"[0-9]+\.[0-9]*" => Float,
     r"[0-9]+" => Int,
     "if",
     "else",
@@ -20,7 +20,7 @@ match{
     "of",
     "int",
     "float",
-    r#"[\P{Cc}\P{Cn}]*""# => Str 
+    r#""[\P{Cc}\P{Cn}]*""# => Str 
 }else{
     r"\w+" => Id,
     _ // Includes all other terminals
@@ -124,7 +124,7 @@ SfxOp: SfxOpcode = {
 };
 
 Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)),
+    Num,
     Lit => Box::new(Expr::Literal(<>)),
     Id => Box::new(Expr::Id(<>.into())),
     "(" <Expr> ")",
@@ -132,10 +132,22 @@ Term: Box<Expr> = {
 };
 
 // TODO work out - is it possible to put these errors into errors as well?
-Num: i32 = {
-    Int =>? i32::from_str(<>).map_err(|_| ParseError::User{
-        error: "bob done make an number demasiado grande"
-    })
+// Evidently. But this is a silly question as they already do get put into errors.
+Num: Box<Expr> = {
+    Int =>? 
+        match i32::from_str(<>){
+            Ok(i) => Ok(Box::new(Expr::Int(i))),
+            Err(_) => Err(ParseError::User{
+                error:"failed to parse int. Too big?"
+            })
+        }
+    ,
+    Float =>?  match f32::from_str(<>){
+            Ok(f) => Ok(Box::new(Expr::Float(f))),
+            Err(_) => Err(ParseError::User{
+                error:"failed to parse int. Too big?"
+            })
+        }
 };
 
 // At present, space to tilde, which is all of the prinatble ascii (32 to 126) characters

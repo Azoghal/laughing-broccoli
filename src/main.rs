@@ -90,6 +90,13 @@ fn string() {
 }
 
 #[test]
+fn numbers() {
+    parse_expr_and_check("2", "2");
+    parse_expr_and_check("0.", "0.0");
+    // parse_expr_and_check(".0", "error");
+}
+
+#[test]
 fn unary() {
     parse_expr_and_check("1", "1");
     parse_expr_and_check("!1", "!(1)");
