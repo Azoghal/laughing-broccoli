@@ -20,6 +20,7 @@ match{
     "of",
     "int",
     "float",
+    r#"[\P{Cc}\P{Cn}]*""# => Str 
 }else{
     r"\w+" => Id,
     _ // Includes all other terminals
@@ -137,8 +138,9 @@ Num: i32 = {
     })
 };
 
+// At present, space to tilde, which is all of the prinatble ascii (32 to 126) characters
 Lit: String = {
-    <l:r#""[a-z ]*""#> => l[1..l.len()-1].into()
+    <l:Str> => l[1..l.len()-1].into()
 };
 
 pub Type: Box<ASTType> = {
