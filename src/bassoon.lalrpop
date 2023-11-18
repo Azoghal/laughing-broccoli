@@ -33,17 +33,22 @@ pub Function: Box<ASTFunc> = {
     },
 };
 
-Args: ASTArgs = {
-    <mut decls:(<Decl>",")*> <last:Decl?> =>? {
+// TODO turn this into a macro so we can reuse it
+Comma<T> : Vec<T> = {
+    <mut elems:(<T>",")*> <last:T?> =>? {
         match last{
             None => {
-                if decls.len() == 0 {Ok(ASTArgs(decls))} else{
+                if elems.len() == 0 {Ok(elems)} else{
                     Err(ParseError::User{error:"possibly trailing comma"})
                 }
             },
-            Some(l) => {decls.push(l); Ok(ASTArgs(decls))}
+            Some(l) => {elems.push(l); Ok(elems)}
         }
     }
+};
+
+Args: ASTArgs = {
+    Comma<Decl> => ASTArgs(<>)
 };
 
 pub Statements: Vec<Box<ASTStatement>> = {
@@ -113,7 +118,6 @@ FactorOp: BinOpcode = {
     "/" => BinOpcode::Div,
 };
 
-// TODO add minus
 PfxOp: PfxOpcode = {
     "!" => PfxOpcode::Not,
     "-" => PfxOpcode::Minus
@@ -127,6 +131,7 @@ Term: Box<Expr> = {
     Num,
     Lit => Box::new(Expr::Literal(<>)),
     Id => Box::new(Expr::Id(<>.into())),
+    "[" <elems:Comma<Expr>> "]" => Box::new(Expr::Array(<>)),
     "(" <Expr> ")",
     ! => {errors.push(<>); Box::new(Expr::Error)}, 
 };

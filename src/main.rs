@@ -97,6 +97,11 @@ fn numbers() {
 }
 
 #[test]
+fn arrays() {
+    parse_expr_and_check("[1,2,3,4,bob]", "[1, 2, 3, 4, bob]")
+}
+
+#[test]
 fn unary() {
     parse_expr_and_check("1", "1");
     parse_expr_and_check("!1", "!(1)");
