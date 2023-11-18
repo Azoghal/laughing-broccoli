@@ -89,7 +89,7 @@ Tier<Op, NextTier>: Box<Expr> = {
     NextTier,
 };
 
-// Unary binds most tightly, +- most loosely
+// Index, then Unary binds most tightly, +- most loosely
 pub Expr = Tier<BoolOp, Arith>;
 Arith = Tier<ArithOp, Factor>;
 Factor = Tier<FactorOp, SfxUnary>;
@@ -99,7 +99,11 @@ SfxUnary: Box<Expr> = {
 };
 PfxUnary: Box<Expr> = {
     PfxOp PfxUnary => Box::new(Expr::PfxUnOp(<>)),
+    Index,
     Term,
+}
+Index: Box<Expr> = {
+    <t:Term> "["<i:Expr>"]" => Box::new(Expr::Index(<>))
 }
 
 BoolOp: BinOpcode = {

@@ -102,6 +102,14 @@ fn arrays() {
 }
 
 #[test]
+fn arary_index() {
+    parse_expr_and_check("bob[1]", "bob[1]");
+    parse_expr_and_check("1 + bob[1]", "(1 + bob[1])");
+    parse_expr_and_check("bob[1 + 5]", "bob[(1 + 5)]");
+    parse_expr_and_check("!bob[1]", "!(bob[1])")
+}
+
+#[test]
 fn unary() {
     parse_expr_and_check("1", "1");
     parse_expr_and_check("!1", "!(1)");
