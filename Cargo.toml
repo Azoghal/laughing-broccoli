@@ -14,3 +14,4 @@ lalrpop-util = { version = "0.20.0", features = ["lexer", "unicode"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 tracing-test = "0.2.4"
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm10-0"] }
