@@ -22,10 +22,12 @@ fn main() {
 
     let _args = Args::parse();
 
+    info!("Doing some parsing");
     if let Err(err) = parser::parse_expr("1 + 2") {
         error!("Done failed to parse an expression {err}");
     };
 
+    info!("Doing some codegen-ing");
     if let Err(err) = codegen::codeo_geneo() {
         error!("Done failed to code gen {err}");
     };

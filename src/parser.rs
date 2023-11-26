@@ -12,12 +12,12 @@ pub fn parse_expr(input: &str) -> Result<Box<Expr>, LexerError> {
     bassoon::ExprParser::new().parse(&mut errors, input)
 }
 
-pub fn parse_statement(input: &str) -> Result<Box<ASTStatement>, LexerError> {
+pub fn _parse_statement(input: &str) -> Result<Box<ASTStatement>, LexerError> {
     let mut errors = Vec::new();
     bassoon::StatementParser::new().parse(&mut errors, input)
 }
 
-pub fn parse_function(input: &str) -> Result<Box<ASTFunc>, LexerError> {
+pub fn _parse_function(input: &str) -> Result<Box<ASTFunc>, LexerError> {
     let mut errors = Vec::new();
     bassoon::FunctionParser::new().parse(&mut errors, input)
 }
