@@ -3,6 +3,7 @@ use tracing::{error, info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod ast;
+mod codegen;
 mod parser;
 
 #[derive(Parser)]
@@ -19,8 +20,13 @@ fn main() {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let args = Args::parse();
-    info!("Starting to do things, e.g. with arg_num: {}", args.arg_num);
-    // Do things
-    error!("Didn't do anything");
+    let _args = Args::parse();
+
+    if let Err(err) = parser::parse_expr("1 + 2") {
+        error!("Done failed to parse an expression {err}");
+    };
+
+    if let Err(err) = codegen::codeo_geneo() {
+        error!("Done failed to code gen {err}");
+    };
 }
