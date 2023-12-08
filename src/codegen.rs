@@ -4,8 +4,9 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::support::LLVMString;
 use inkwell::types::IntType;
-use inkwell::values::IntValue;
+use inkwell::values::{FunctionValue, IntValue};
 use inkwell::OptimizationLevel;
+use tracing::info;
 
 use std::error::Error;
 use std::fmt;
@@ -70,6 +71,29 @@ impl<'ctx> CodeGen<'ctx> {
         unsafe { self.execution_engine.get_function("sum").ok() }
     }
 
+    fn print_llvm_function(&self, function: FunctionValue) {
+        // TODO improvements:
+        //  1. log info about the function
+        //  2. Make this work out what tracing log level we are running in and then respect that, not printing if not infoing.
+        info!("The function you requested");
+        function.print_to_stderr();
+    }
+
+    // Starts a main function that returns an i32
+    fn main_build(&self, arith: Box<Expr>) {
+        let fn_type = self.i32_type.fn_type(&[], false);
+        let function = self.module.add_function("main", fn_type, None);
+        let basic_block = self.context.append_basic_block(function, "entry");
+        self.builder.position_at_end(basic_block);
+
+        // build an arithmetic expression
+        let _ = self.arithmetic_build(arith);
+
+        self.builder.build_return(None).unwrap();
+
+        self.print_llvm_function(function)
+    }
+
     // TODO This only works for integer things
     // This is a small builder that will only build for arithmetic
     fn arithmetic_build(&self, arith: Box<Expr>) -> Result<IntValue, CodegenError> {
@@ -107,7 +131,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 }
 
-pub fn arith_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
+pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let module = context.create_module("sum");
     let Ok(execution_engine) = module.create_jit_execution_engine(OptimizationLevel::None) else {
@@ -123,7 +147,8 @@ pub fn arith_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
         i32_type: context.i32_type(),
     };
 
-    codegen.arithmetic_build(arith_expr).map(|_| ())
+    codegen.main_build(arith_expr);
+    Ok(())
 }
 
 pub fn jit_sum() -> Result<(), Box<dyn Error>> {
