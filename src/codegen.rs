@@ -8,14 +8,14 @@ use inkwell::values::IntValue;
 use inkwell::OptimizationLevel;
 
 use std::error::Error;
+use std::fmt;
 
 use crate::ast::{BinOpcode, Expr};
 
 #[derive(Debug)]
-enum CodegenError {
+pub enum CodegenError {
     Temp(String),
     Builder(BuilderError),
-    LLVMString(LLVMString),
 }
 
 impl From<BuilderError> for CodegenError {
@@ -24,9 +24,12 @@ impl From<BuilderError> for CodegenError {
     }
 }
 
-impl From<LLVMString> for CodegenError {
-    fn from(value: LLVMString) -> Self {
-        Self::LLVMString(value)
+impl fmt::Display for CodegenError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Temp(s) => write!(f, "Temp {s}"),
+            Self::Builder(b) => write!(f, "A builder error {:?}", b),
+        }
     }
 }
 
