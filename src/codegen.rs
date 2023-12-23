@@ -4,19 +4,22 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::support::LLVMString;
 use inkwell::types::IntType;
-use inkwell::values::{FunctionValue, IntValue};
+use inkwell::values::{BasicValue, FunctionValue, IntValue};
 use inkwell::OptimizationLevel;
 use tracing::info;
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
-use crate::ast::{BinOpcode, Expr};
+use crate::ast::{ASTStatement, BinOpcode, Expr};
 
 #[derive(Debug)]
 pub enum CodegenError {
     Temp(String),
     Builder(BuilderError),
+    NotImplemented(String),
+    Scope(String),
 }
 
 impl From<BuilderError> for CodegenError {
@@ -28,8 +31,10 @@ impl From<BuilderError> for CodegenError {
 impl fmt::Display for CodegenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Temp(s) => write!(f, "Temp {s}"),
-            Self::Builder(b) => write!(f, "A builder error {:?}", b),
+            Self::Temp(msg) => write!(f, "Temp {msg}"),
+            Self::Builder(b_err) => write!(f, "A builder error {:?}", b_err),
+            Self::NotImplemented(msg) => write!(f, "codegen not implemented for {msg}"),
+            Self::Scope(msg) => write!(f, "scoping issue: {msg}"),
         }
     }
 }
@@ -40,6 +45,31 @@ impl fmt::Display for CodegenError {
 /// do `unsafe` operations internally.
 type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
 
+struct BassoonScope<'ctx> {
+    scopes: Vec<HashMap<String, &'ctx dyn BasicValue<'ctx>>>,
+    scope_sources: Vec<String>, // TODO extend to be more helpful, include e.g. line numbers or something
+}
+
+impl<'ctx> BassoonScope<'ctx> {
+    fn start_scope(&self, source: String) {
+        self.scope_sources.push(source);
+        self.scopes.push(HashMap::new())
+    }
+
+    fn end_scope(&self, expected_source: String) -> Result<(), CodegenError> {
+        let Some(actual_source) = self.scope_sources.pop() else {
+            return Err(CodegenError::Scope(format!("no scopes left to pop")));
+        };
+
+        if actual_source != expected_source {
+            return Err(CodegenError::Scope(format!(
+                "current top scope source {actual_source} does not match expected scope {expected_source}"
+            )));
+        }
+        Ok(())
+    }
+}
+
 struct CodeGen<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
@@ -48,6 +78,9 @@ struct CodeGen<'ctx> {
 
     // types
     i32_type: IntType<'ctx>,
+
+    // data structures
+    scope: BassoonScope<'ctx>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -87,26 +120,46 @@ impl<'ctx> CodeGen<'ctx> {
         self.builder.position_at_end(basic_block);
 
         // build an arithmetic expression
-        let _ = self.arithmetic_build(arith);
-
-        self.builder.build_return(None).unwrap();
+        if let Ok(val) = self.int_expr_build(arith) {
+            self.builder.build_return(Some(&val)).unwrap();
+        } else {
+            self.builder.build_return(None).unwrap();
+        }
 
         self.print_llvm_function(function)
     }
 
+    // TODO sort out return type for success - what even is it?
+    fn statement_build(&self, statement: Box<ASTStatement>) -> Result<(), CodegenError> {
+        match *statement {
+            ASTStatement::Assign(identifier, expr) => {
+                // TODO lookup in existing scope of identifiers, else error
+                Ok(())
+            }
+            ASTStatement::Decl(identifier, typ) => Ok(()),
+            ASTStatement::Init(identifier, typ, expr) => Ok(()),
+            _ => Err(CodegenError::NotImplemented(
+                "Non assign, decl, init statement".to_string(),
+            )),
+        }
+    }
+
     // TODO This only works for integer things
     // This is a small builder that will only build for arithmetic
-    fn arithmetic_build(&self, arith: Box<Expr>) -> Result<IntValue, CodegenError> {
+    fn int_expr_build(&self, arith: Box<Expr>) -> Result<IntValue, CodegenError> {
         match *arith {
             Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
+            Expr::Id(identifier) => Ok(self.i32_type.const_int(67 as u64, false)), // TODO lookup identifier
             Expr::BinOp(l, op, r) => {
-                let left = self.arithmetic_build(l)?;
-                let right = self.arithmetic_build(r)?;
+                let left = self.int_expr_build(l)?;
+                let right = self.int_expr_build(r)?;
                 match op {
-                    BinOpcode::Add => self
-                        .builder
-                        .build_int_add(left, right, "binop-add-temp")
-                        .map_err(CodegenError::from),
+                    BinOpcode::Add => {
+                        info!("making a binop add");
+                        self.builder
+                            .build_int_add(left, right, "binop-add-temp")
+                            .map_err(CodegenError::from)
+                    }
                     BinOpcode::Sub => self
                         .builder
                         .build_int_sub(left, right, "binop-sub-temp")
@@ -124,7 +177,7 @@ impl<'ctx> CodeGen<'ctx> {
                     )),
                 }
             }
-            _ => Err(CodegenError::Temp(
+            _ => Err(CodegenError::NotImplemented(
                 "Unhandled case of expression".to_string(),
             )),
         }
