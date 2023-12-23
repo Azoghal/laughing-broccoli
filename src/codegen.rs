@@ -1,15 +1,11 @@
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::support::LLVMString;
 use inkwell::types::IntType;
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue};
-use inkwell::OptimizationLevel;
-use tracing::info;
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
+use tracing::{error, info};
 
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt;
 
 use crate::ast::{ASTStatement, BinOpcode, Expr};
@@ -46,7 +42,7 @@ impl fmt::Display for CodegenError {
 type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
 
 struct BassoonScope<'ctx> {
-    scopes: Vec<HashMap<String, &'ctx dyn BasicValue<'ctx>>>,
+    scopes: Vec<HashMap<String, PointerValue<'ctx>>>,
     scope_sources: Vec<String>, // TODO extend to be more helpful, include e.g. line numbers or something
     top: usize,
 }
@@ -85,7 +81,7 @@ impl<'ctx> BassoonScope<'ctx> {
     fn add_to_scope(
         &mut self,
         identifier: String,
-        val: &'ctx (dyn BasicValue<'ctx>),
+        val: PointerValue<'ctx>,
     ) -> Result<(), CodegenError> {
         let current_scope = &mut self.scopes[self.top - 1];
         if current_scope.contains_key(&identifier) {
@@ -100,7 +96,7 @@ impl<'ctx> BassoonScope<'ctx> {
         Ok(())
     }
 
-    fn reference_lookup(&self, identifier: String) -> Option<&'ctx dyn BasicValue<'ctx>> {
+    fn reference_lookup(&self, identifier: String) -> Option<PointerValue<'ctx>> {
         for scope in self.scopes.iter().rev() {
             if let Some(&val) = scope.get(&identifier) {
                 return Some(val);
@@ -114,7 +110,6 @@ struct CodeGen<'ctx> {
     context: &'ctx Context,
     module: Module<'ctx>,
     builder: Builder<'ctx>,
-    execution_engine: ExecutionEngine<'ctx>,
 
     // types
     i32_type: IntType<'ctx>,
@@ -124,26 +119,6 @@ struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-    fn jit_compile_sum(&self) -> Option<JitFunction<SumFunc>> {
-        let i64_type = self.context.i64_type();
-        let fn_type = i64_type.fn_type(&[i64_type.into(), i64_type.into(), i64_type.into()], false);
-        let function = self.module.add_function("sum", fn_type, None);
-        let basic_block = self.context.append_basic_block(function, "entry");
-
-        self.builder.position_at_end(basic_block);
-
-        let x = function.get_nth_param(0)?.into_int_value();
-        let y = function.get_nth_param(1)?.into_int_value();
-        let z = function.get_nth_param(2)?.into_int_value();
-
-        let sum = self.builder.build_int_add(x, y, "sum").unwrap();
-        let sum = self.builder.build_int_add(sum, z, "sum").unwrap();
-
-        self.builder.build_return(Some(&sum)).unwrap();
-
-        unsafe { self.execution_engine.get_function("sum").ok() }
-    }
-
     fn print_llvm_function(&self, function: FunctionValue) {
         // TODO improvements:
         //  1. log info about the function
@@ -245,54 +220,18 @@ impl<'ctx> CodeGen<'ctx> {
 pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let module = context.create_module("sum");
-    let Ok(execution_engine) = module.create_jit_execution_engine(OptimizationLevel::None) else {
-        return Err(CodegenError::Temp(
-            "failed to make execution engine".to_string(),
-        ));
-    };
     let scope = BassoonScope::new();
 
     let codegen = CodeGen {
         context: &context,
         module,
         builder: context.create_builder(),
-        execution_engine,
+        // execution_engine,
         i32_type: context.i32_type(),
         scope,
     };
 
     codegen.main_build(arith_expr);
-    Ok(())
-}
-
-pub fn jit_sum() -> Result<(), Box<dyn Error>> {
-    let context = Context::create();
-    let module = context.create_module("sum");
-    let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
-    let scope = BassoonScope::new();
-
-    let codegen = CodeGen {
-        context: &context,
-        module,
-        builder: context.create_builder(),
-        execution_engine,
-        i32_type: context.i32_type(),
-        scope,
-    };
-
-    let sum = codegen
-        .jit_compile_sum()
-        .ok_or("Unable to JIT compile `sum`")?;
-
-    let x = 1u64;
-    let y = 2u64;
-    let z = 3u64;
-
-    unsafe {
-        println!("{} + {} + {} = {}", x, y, z, sum.call(x, y, z));
-        assert_eq!(sum.call(x, y, z), x + y + z);
-    }
-
     Ok(())
 }
 
@@ -314,20 +253,40 @@ fn test_scope_push_and_pop() {
 #[test]
 fn test_scope_add() {
     let context = Context::create();
+    let module = context.create_module("test");
     let builder = context.create_builder();
+    let fn_type = context.i32_type().fn_type(&[], false);
+    let function = module.add_function("main", fn_type, None);
+    let basic_block = context.append_basic_block(function, "entry");
+    builder.position_at_end(basic_block);
     let mut scope = BassoonScope::new();
 
-    let value = context.i32_type().const_int(23, false);
-    scope.add_to_scope("bobbis".to_string(), &value).unwrap();
+    let res = builder.build_alloca(context.i32_type(), "test");
+    match res {
+        Ok(value) => match scope.add_to_scope("bobbis".to_string(), value) {
+            Ok(_) => {}
+            Err(e) => {
+                error!("{:?}", e);
+                panic!()
+            }
+        },
+        Err(e) => {
+            error!("{:?}", e);
+            panic!()
+        }
+    }
 }
 
 #[test]
 fn test_scope_add_get() {
     let context = Context::create();
+    let builder: Builder<'_> = context.create_builder();
     let mut scope = BassoonScope::new();
 
-    let value = context.i32_type().const_int(23, false);
-    scope.add_to_scope("bobbis".to_string(), &value).unwrap();
+    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value).unwrap();
 
     let Some(_) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
@@ -338,75 +297,60 @@ fn test_scope_add_get() {
 fn test_scope_add_get_multi_scope() {
     // Populate 3 scope levels with a binding for the same name, check that lookup returns the correct one
     let context = Context::create();
+    let builder: Builder<'_> = context.create_builder();
     let mut scope = BassoonScope::new();
 
-    let value_1 = context.i32_type().const_int(23, false);
-    scope.add_to_scope("bobbis".to_string(), &value_1).unwrap();
+    let Ok(value_1) = builder.build_alloca(context.i32_type(), "test1") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value_1).unwrap();
 
     let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
-    let val_1_enum = val_1.as_basic_value_enum();
-    match val_1_enum {
-        BasicValueEnum::IntValue(v) => {
-            assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
-        }
-        _ => panic!(),
-    }
+    assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
+
+    // let val_1_enum = val_1.as_basic_value_enum();
+    // match val_1_enum {
+    //     BasicValueEnum::IntValue(v) => {
+    //         assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
+    //     }
+    //     _ => panic!(),
+    // }
 
     scope.start_scope("test1".to_string());
-    let value_2 = context.i32_type().const_int(800, false);
-    scope.add_to_scope("bobbis".to_string(), &value_2).unwrap();
+    let Ok(value_2) = builder.build_alloca(context.i32_type(), "test2") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value_2).unwrap();
 
     let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
-    let val_2_enum = val_2.as_basic_value_enum();
-    match val_2_enum {
-        BasicValueEnum::IntValue(v) => {
-            assert_eq!(v.get_zero_extended_constant().unwrap(), 800)
-        }
-        _ => panic!(),
-    }
+    assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
 
     scope.start_scope("test2".to_string());
-    let value_3 = context.i32_type().const_int(1111, false);
-    scope.add_to_scope("bobbis".to_string(), &value_3).unwrap();
+    let Ok(value_3) = builder.build_alloca(context.i32_type(), "test3") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value_3).unwrap();
 
     let Some(val_3) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
-    let val_3_enum = val_3.as_basic_value_enum();
-    match val_3_enum {
-        BasicValueEnum::IntValue(v) => {
-            assert_eq!(v.get_zero_extended_constant().unwrap(), 1111)
-        }
-        _ => panic!(),
-    }
+    assert_eq!(val_3.get_name().to_str().unwrap(), "test3");
 
     scope.end_scope("test2".to_string()).unwrap();
 
     let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
-    let val_2_enum = val_2.as_basic_value_enum();
-    match val_2_enum {
-        BasicValueEnum::IntValue(v) => {
-            assert_eq!(v.get_zero_extended_constant().unwrap(), 800)
-        }
-        _ => panic!(),
-    }
+    assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
 
     scope.end_scope("test1".to_string()).unwrap();
 
     let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
-    let val_1_enum = val_1.as_basic_value_enum();
-    match val_1_enum {
-        BasicValueEnum::IntValue(v) => {
-            assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
-        }
-        _ => panic!(),
-    }
+    assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
 }
