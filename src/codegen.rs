@@ -4,7 +4,7 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::support::LLVMString;
 use inkwell::types::IntType;
-use inkwell::values::{BasicValue, FunctionValue, IntValue};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue};
 use inkwell::OptimizationLevel;
 use tracing::info;
 
@@ -69,7 +69,7 @@ impl<'ctx> BassoonScope<'ctx> {
     }
 
     fn end_scope(&mut self, expected_source: String) -> Result<(), CodegenError> {
-        let Some(actual_source) = self.scope_sources.pop() else {
+        let (Some(actual_source), Some(_)) = (self.scope_sources.pop(), self.scopes.pop()) else {
             return Err(CodegenError::Scope("no scopes left to pop".to_string()));
         };
 
@@ -87,7 +87,7 @@ impl<'ctx> BassoonScope<'ctx> {
         identifier: String,
         val: &'ctx (dyn BasicValue<'ctx>),
     ) -> Result<(), CodegenError> {
-        let current_scope = &mut self.scopes[self.top];
+        let current_scope = &mut self.scopes[self.top - 1];
         if current_scope.contains_key(&identifier) {
             return Err(CodegenError::Scope(format!("this would conflict with an existing reference to {identifier} in the current scope")));
         }
@@ -276,4 +276,119 @@ pub fn jit_sum() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+#[test]
+fn test_scope_create() {
+    let mut scope = BassoonScope::new();
+    scope.end_scope("GLOBAL".to_string()).unwrap()
+}
+
+#[test]
+fn test_scope_push_and_pop() {
+    let mut scope = BassoonScope::new();
+    scope.start_scope("test1".to_string());
+    scope.start_scope("test2".to_string());
+    scope.end_scope("test2".to_string()).unwrap();
+    scope.end_scope("test1".to_string()).unwrap();
+}
+
+#[test]
+fn test_scope_add() {
+    let context = Context::create();
+    let builder = context.create_builder();
+    let mut scope = BassoonScope::new();
+
+    let value = context.i32_type().const_int(23, false);
+    scope.add_to_scope("bobbis".to_string(), &value).unwrap();
+}
+
+#[test]
+fn test_scope_add_get() {
+    let context = Context::create();
+    let mut scope = BassoonScope::new();
+
+    let value = context.i32_type().const_int(23, false);
+    scope.add_to_scope("bobbis".to_string(), &value).unwrap();
+
+    let Some(_) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+}
+
+#[test]
+fn test_scope_add_get_multi_scope() {
+    // Populate 3 scope levels with a binding for the same name, check that lookup returns the correct one
+    let context = Context::create();
+    let mut scope = BassoonScope::new();
+
+    let value_1 = context.i32_type().const_int(23, false);
+    scope.add_to_scope("bobbis".to_string(), &value_1).unwrap();
+
+    let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+    let val_1_enum = val_1.as_basic_value_enum();
+    match val_1_enum {
+        BasicValueEnum::IntValue(v) => {
+            assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
+        }
+        _ => panic!(),
+    }
+
+    scope.start_scope("test1".to_string());
+    let value_2 = context.i32_type().const_int(800, false);
+    scope.add_to_scope("bobbis".to_string(), &value_2).unwrap();
+
+    let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+    let val_2_enum = val_2.as_basic_value_enum();
+    match val_2_enum {
+        BasicValueEnum::IntValue(v) => {
+            assert_eq!(v.get_zero_extended_constant().unwrap(), 800)
+        }
+        _ => panic!(),
+    }
+
+    scope.start_scope("test2".to_string());
+    let value_3 = context.i32_type().const_int(1111, false);
+    scope.add_to_scope("bobbis".to_string(), &value_3).unwrap();
+
+    let Some(val_3) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+    let val_3_enum = val_3.as_basic_value_enum();
+    match val_3_enum {
+        BasicValueEnum::IntValue(v) => {
+            assert_eq!(v.get_zero_extended_constant().unwrap(), 1111)
+        }
+        _ => panic!(),
+    }
+
+    scope.end_scope("test2".to_string()).unwrap();
+
+    let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+    let val_2_enum = val_2.as_basic_value_enum();
+    match val_2_enum {
+        BasicValueEnum::IntValue(v) => {
+            assert_eq!(v.get_zero_extended_constant().unwrap(), 800)
+        }
+        _ => panic!(),
+    }
+
+    scope.end_scope("test1".to_string()).unwrap();
+
+    let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+    let val_1_enum = val_1.as_basic_value_enum();
+    match val_1_enum {
+        BasicValueEnum::IntValue(v) => {
+            assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
+        }
+        _ => panic!(),
+    }
 }
