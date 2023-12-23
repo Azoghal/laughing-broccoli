@@ -48,6 +48,7 @@ type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
 struct BassoonScope<'ctx> {
     scopes: Vec<HashMap<String, &'ctx dyn BasicValue<'ctx>>>,
     scope_sources: Vec<String>, // TODO extend to be more helpful, include e.g. line numbers or something
+    top: usize,
 }
 
 impl<'ctx> BassoonScope<'ctx> {
@@ -55,19 +56,21 @@ impl<'ctx> BassoonScope<'ctx> {
         let mut scope = BassoonScope {
             scopes: Vec::new(),
             scope_sources: Vec::new(),
+            top: 0,
         };
         scope.start_scope("GLOBAL".to_string());
-        return scope;
+        scope
     }
 
     fn start_scope(&mut self, source: String) {
         self.scope_sources.push(source);
-        self.scopes.push(HashMap::new())
+        self.scopes.push(HashMap::new());
+        self.top += 1;
     }
 
     fn end_scope(&mut self, expected_source: String) -> Result<(), CodegenError> {
         let Some(actual_source) = self.scope_sources.pop() else {
-            return Err(CodegenError::Scope(format!("no scopes left to pop")));
+            return Err(CodegenError::Scope("no scopes left to pop".to_string()));
         };
 
         if actual_source != expected_source {
@@ -75,7 +78,35 @@ impl<'ctx> BassoonScope<'ctx> {
                 "current top scope source {actual_source} does not match expected scope {expected_source}"
             )));
         }
+        self.top -= 1;
         Ok(())
+    }
+
+    fn add_to_scope(
+        &mut self,
+        identifier: String,
+        val: &'ctx (dyn BasicValue<'ctx>),
+    ) -> Result<(), CodegenError> {
+        let current_scope = &mut self.scopes[self.top];
+        if current_scope.contains_key(&identifier) {
+            return Err(CodegenError::Scope(format!("this would conflict with an existing reference to {identifier} in the current scope")));
+        }
+        let None = current_scope.insert(identifier, val) else {
+            return Err(CodegenError::Scope(
+                "somewhow managed to override an existing reference in this scope, aborting"
+                    .to_string(),
+            ));
+        };
+        Ok(())
+    }
+
+    fn reference_lookup(&self, identifier: String) -> Option<&'ctx dyn BasicValue<'ctx>> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(&val) = scope.get(&identifier) {
+                return Some(val);
+            }
+        }
+        None
     }
 }
 
