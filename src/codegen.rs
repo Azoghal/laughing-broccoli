@@ -189,7 +189,25 @@ impl<'ctx> CodeGen<'ctx> {
     fn int_expr_build(&self, arith: Box<Expr>) -> Result<IntValue, CodegenError> {
         match *arith {
             Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
-            Expr::Id(identifier) => Ok(self.i32_type.const_int(67 as u64, false)), // TODO lookup identifier
+            Expr::Id(identifier) => {
+                if let Some(val) = self.scope.reference_lookup("TODO temp".to_string()) {
+                    match val.as_basic_value_enum() {
+                        //TODO remove unwrap
+                        BasicValueEnum::PointerValue(v) => Ok(self
+                            .builder
+                            .build_load(v, "load-int")
+                            .unwrap()
+                            .into_int_value()),
+                        _ => {
+                            return Err(CodegenError::NotImplemented(
+                                "Not implemented loads for non-ints yet".to_string(),
+                            ))
+                        }
+                    }
+                } else {
+                    return Err(CodegenError::Temp("Variable lookup failed".to_string()));
+                }
+            }
             Expr::BinOp(l, op, r) => {
                 let left = self.int_expr_build(l)?;
                 let right = self.int_expr_build(r)?;
