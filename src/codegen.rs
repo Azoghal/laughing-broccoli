@@ -51,12 +51,21 @@ struct BassoonScope<'ctx> {
 }
 
 impl<'ctx> BassoonScope<'ctx> {
-    fn start_scope(&self, source: String) {
+    fn new() -> BassoonScope<'ctx> {
+        let mut scope = BassoonScope {
+            scopes: Vec::new(),
+            scope_sources: Vec::new(),
+        };
+        scope.start_scope("GLOBAL".to_string());
+        return scope;
+    }
+
+    fn start_scope(&mut self, source: String) {
         self.scope_sources.push(source);
         self.scopes.push(HashMap::new())
     }
 
-    fn end_scope(&self, expected_source: String) -> Result<(), CodegenError> {
+    fn end_scope(&mut self, expected_source: String) -> Result<(), CodegenError> {
         let Some(actual_source) = self.scope_sources.pop() else {
             return Err(CodegenError::Scope(format!("no scopes left to pop")));
         };
@@ -192,12 +201,15 @@ pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
             "failed to make execution engine".to_string(),
         ));
     };
+    let scope = BassoonScope::new();
+
     let codegen = CodeGen {
         context: &context,
         module,
         builder: context.create_builder(),
         execution_engine,
         i32_type: context.i32_type(),
+        scope,
     };
 
     codegen.main_build(arith_expr);
@@ -208,12 +220,15 @@ pub fn jit_sum() -> Result<(), Box<dyn Error>> {
     let context = Context::create();
     let module = context.create_module("sum");
     let execution_engine = module.create_jit_execution_engine(OptimizationLevel::None)?;
+    let scope = BassoonScope::new();
+
     let codegen = CodeGen {
         context: &context,
         module,
         builder: context.create_builder(),
         execution_engine,
         i32_type: context.i32_type(),
+        scope,
     };
 
     let sum = codegen
