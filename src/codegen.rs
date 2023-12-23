@@ -250,37 +250,34 @@ fn test_scope_push_and_pop() {
     scope.end_scope("test1".to_string()).unwrap();
 }
 
+#[cfg(test)]
+fn setup_test<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder<'ctx>) {
+    let fn_type = context.i32_type().fn_type(&[], false);
+    let function = module.add_function("main", fn_type, None);
+    let basic_block = context.append_basic_block(function, "entry");
+    builder.position_at_end(basic_block);
+}
+
 #[test]
 fn test_scope_add() {
     let context = Context::create();
     let module = context.create_module("test");
     let builder = context.create_builder();
-    let fn_type = context.i32_type().fn_type(&[], false);
-    let function = module.add_function("main", fn_type, None);
-    let basic_block = context.append_basic_block(function, "entry");
-    builder.position_at_end(basic_block);
+    setup_test(&context, &module, &builder);
     let mut scope = BassoonScope::new();
 
-    let res = builder.build_alloca(context.i32_type(), "test");
-    match res {
-        Ok(value) => match scope.add_to_scope("bobbis".to_string(), value) {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{:?}", e);
-                panic!()
-            }
-        },
-        Err(e) => {
-            error!("{:?}", e);
-            panic!()
-        }
-    }
+    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value).unwrap();
 }
 
 #[test]
 fn test_scope_add_get() {
     let context = Context::create();
-    let builder: Builder<'_> = context.create_builder();
+    let module = context.create_module("test");
+    let builder = context.create_builder();
+    setup_test(&context, &module, &builder);
     let mut scope = BassoonScope::new();
 
     let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
@@ -297,7 +294,9 @@ fn test_scope_add_get() {
 fn test_scope_add_get_multi_scope() {
     // Populate 3 scope levels with a binding for the same name, check that lookup returns the correct one
     let context = Context::create();
-    let builder: Builder<'_> = context.create_builder();
+    let module = context.create_module("test");
+    let builder = context.create_builder();
+    setup_test(&context, &module, &builder);
     let mut scope = BassoonScope::new();
 
     let Ok(value_1) = builder.build_alloca(context.i32_type(), "test1") else {
@@ -309,14 +308,6 @@ fn test_scope_add_get_multi_scope() {
         panic!()
     };
     assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
-
-    // let val_1_enum = val_1.as_basic_value_enum();
-    // match val_1_enum {
-    //     BasicValueEnum::IntValue(v) => {
-    //         assert_eq!(v.get_zero_extended_constant().unwrap(), 23)
-    //     }
-    //     _ => panic!(),
-    // }
 
     scope.start_scope("test1".to_string());
     let Ok(value_2) = builder.build_alloca(context.i32_type(), "test2") else {
