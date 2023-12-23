@@ -15,9 +15,12 @@ First pass complete, probably a few things will pop up as codegen developed.
 - Read back through bassoon codegen to get the gist.
 - Proof of concept code emission with Inkwell
 - Codegen for existing language features
+    - starting with just main function
+    - only int type
+    - assign to registers
+    - binops for those its
 - Codegen for new language features
     - arrays
     - indexing
-
 
 Readme bump to trigger CI
