@@ -271,29 +271,6 @@ pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     Ok(())
 }
 
-#[test]
-fn test_scope_create() {
-    let mut scope = BassoonScope::new();
-    scope.end_scope("GLOBAL".to_string()).unwrap()
-}
-
-#[test]
-fn test_scope_push_and_pop() {
-    let mut scope = BassoonScope::new();
-    scope.start_scope("test1".to_string());
-    scope.start_scope("test2".to_string());
-    scope.end_scope("test2".to_string()).unwrap();
-    scope.end_scope("test1".to_string()).unwrap();
-}
-
-#[test]
-#[should_panic]
-fn test_scope_error_if_source_mismatch() {
-    let mut scope = BassoonScope::new();
-    scope.start_scope("test1".to_string());
-    scope.end_scope("test2".to_string()).unwrap();
-}
-
 #[cfg(test)]
 fn setup_test<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder<'ctx>) {
     let fn_type = context.i32_type().fn_type(&[], false);
@@ -301,120 +278,147 @@ fn setup_test<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Bui
     let basic_block = context.append_basic_block(function, "entry");
     builder.position_at_end(basic_block);
 }
+mod scope_tests {
+    #[cfg(test)]
+    use super::*;
 
-#[test]
-fn test_scope_add() {
-    let context = Context::create();
-    let module = context.create_module("test");
-    let builder = context.create_builder();
-    setup_test(&context, &module, &builder);
-    let mut scope = BassoonScope::new();
+    #[test]
+    fn test_scope_create() {
+        let mut scope = BassoonScope::new();
+        scope.end_scope("GLOBAL".to_string()).unwrap()
+    }
 
-    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value).unwrap();
-}
+    #[test]
+    fn test_scope_push_and_pop() {
+        let mut scope = BassoonScope::new();
+        scope.start_scope("test1".to_string());
+        scope.start_scope("test2".to_string());
+        scope.end_scope("test2".to_string()).unwrap();
+        scope.end_scope("test1".to_string()).unwrap();
+    }
 
-#[test]
-#[should_panic]
-fn test_scope_add_fails_for_shadow() {
-    let context = Context::create();
-    let module = context.create_module("test");
-    let builder = context.create_builder();
-    setup_test(&context, &module, &builder);
-    let mut scope = BassoonScope::new();
+    #[test]
+    #[should_panic]
+    fn test_scope_error_if_source_mismatch() {
+        let mut scope = BassoonScope::new();
+        scope.start_scope("test1".to_string());
+        scope.end_scope("test2".to_string()).unwrap();
+    }
 
-    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value).unwrap();
-    scope.add_to_scope("bobbis".to_string(), value).unwrap();
-}
+    #[test]
+    fn test_scope_add() {
+        let context = Context::create();
+        let module = context.create_module("test");
+        let builder = context.create_builder();
+        setup_test(&context, &module, &builder);
+        let mut scope = BassoonScope::new();
 
-#[test]
-fn test_scope_add_get() {
-    let context = Context::create();
-    let module = context.create_module("test");
-    let builder = context.create_builder();
-    setup_test(&context, &module, &builder);
-    let mut scope = BassoonScope::new();
+        let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value).unwrap();
+    }
 
-    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value).unwrap();
+    #[test]
+    #[should_panic]
+    fn test_scope_add_fails_for_shadow() {
+        let context = Context::create();
+        let module = context.create_module("test");
+        let builder = context.create_builder();
+        setup_test(&context, &module, &builder);
+        let mut scope = BassoonScope::new();
 
-    let Some(_) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-}
+        let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value).unwrap();
+        scope.add_to_scope("bobbis".to_string(), value).unwrap();
+    }
 
-#[test]
-fn test_scope_add_get_gives_none() {
-    let context = Context::create();
-    let module = context.create_module("test");
-    let builder = context.create_builder();
-    setup_test(&context, &module, &builder);
-    let scope = BassoonScope::new();
+    #[test]
+    fn test_scope_add_get() {
+        let context = Context::create();
+        let module = context.create_module("test");
+        let builder = context.create_builder();
+        setup_test(&context, &module, &builder);
+        let mut scope = BassoonScope::new();
 
-    let None = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-}
+        let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value).unwrap();
 
-#[test]
-fn test_scope_add_get_multi_scope() {
-    // Populate 3 scope levels with a binding for the same name, check that lookup returns the correct one
-    let context = Context::create();
-    let module = context.create_module("test");
-    let builder = context.create_builder();
-    setup_test(&context, &module, &builder);
-    let mut scope = BassoonScope::new();
+        let Some(_) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+    }
 
-    let Ok(value_1) = builder.build_alloca(context.i32_type(), "test1") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value_1).unwrap();
+    #[test]
+    fn test_scope_add_get_gives_none() {
+        let context = Context::create();
+        let module = context.create_module("test");
+        let builder = context.create_builder();
+        setup_test(&context, &module, &builder);
+        let scope = BassoonScope::new();
 
-    let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-    assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
+        let None = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+    }
 
-    scope.start_scope("test1".to_string());
-    let Ok(value_2) = builder.build_alloca(context.i32_type(), "test2") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value_2).unwrap();
+    #[test]
+    fn test_scope_add_get_multi_scope() {
+        // Populate 3 scope levels with a binding for the same name, check that lookup returns the correct one
+        let context = Context::create();
+        let module = context.create_module("test");
+        let builder = context.create_builder();
+        setup_test(&context, &module, &builder);
+        let mut scope = BassoonScope::new();
 
-    let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-    assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
+        let Ok(value_1) = builder.build_alloca(context.i32_type(), "test1") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value_1).unwrap();
 
-    scope.start_scope("test2".to_string());
-    let Ok(value_3) = builder.build_alloca(context.i32_type(), "test3") else {
-        panic!()
-    };
-    scope.add_to_scope("bobbis".to_string(), value_3).unwrap();
+        let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+        assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
 
-    let Some(val_3) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-    assert_eq!(val_3.get_name().to_str().unwrap(), "test3");
+        scope.start_scope("test1".to_string());
+        let Ok(value_2) = builder.build_alloca(context.i32_type(), "test2") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value_2).unwrap();
 
-    scope.end_scope("test2".to_string()).unwrap();
+        let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+        assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
 
-    let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-    assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
+        scope.start_scope("test2".to_string());
+        let Ok(value_3) = builder.build_alloca(context.i32_type(), "test3") else {
+            panic!()
+        };
+        scope.add_to_scope("bobbis".to_string(), value_3).unwrap();
 
-    scope.end_scope("test1".to_string()).unwrap();
+        let Some(val_3) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+        assert_eq!(val_3.get_name().to_str().unwrap(), "test3");
 
-    let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
-        panic!()
-    };
-    assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
+        scope.end_scope("test2".to_string()).unwrap();
+
+        let Some(val_2) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+        assert_eq!(val_2.get_name().to_str().unwrap(), "test2");
+
+        scope.end_scope("test1".to_string()).unwrap();
+
+        let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
+            panic!()
+        };
+        assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
+    }
 }
