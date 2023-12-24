@@ -2,7 +2,9 @@ use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::types::IntType;
-use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
+use inkwell::values::{
+    AnyValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
+};
 use tracing::{error, info};
 
 use std::collections::HashMap;
@@ -34,12 +36,6 @@ impl fmt::Display for CodegenError {
         }
     }
 }
-
-/// Convenience type alias for the `sum` function.
-///
-/// Calling this is innately `unsafe` because there's no guarantee it doesn't
-/// do `unsafe` operations internally.
-type SumFunc = unsafe extern "C" fn(u64, u64, u64) -> u64;
 
 struct BassoonScope<'ctx> {
     scopes: Vec<HashMap<String, PointerValue<'ctx>>>,
@@ -119,12 +115,24 @@ struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-    fn print_llvm_function(&self, function: FunctionValue) {
+    fn new(mut context: &'ctx Context) -> Self {
+        CodeGen {
+            context,
+            module: context.create_module("new"),
+            builder: context.create_builder(),
+            // execution_engine,
+            i32_type: context.i32_type(),
+            scope: BassoonScope::new(),
+        }
+    }
+
+    fn print_llvm_function(&self, function: FunctionValue) -> String {
         // TODO improvements:
         //  1. log info about the function
         //  2. Make this work out what tracing log level we are running in and then respect that, not printing if not infoing.
         info!("The function you requested");
         function.print_to_stderr();
+        function.print_to_string().to_string()
     }
 
     // Starts a main function that returns an i32
@@ -141,7 +149,7 @@ impl<'ctx> CodeGen<'ctx> {
             self.builder.build_return(None).unwrap();
         }
 
-        self.print_llvm_function(function)
+        self.print_llvm_function(function);
     }
 
     // TODO sort out return type for success - what even is it?
@@ -272,12 +280,21 @@ pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
 }
 
 #[cfg(test)]
-fn setup_test<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder<'ctx>) {
+fn setup_scope_tests<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder<'ctx>) {
     let fn_type = context.i32_type().fn_type(&[], false);
     let function = module.add_function("main", fn_type, None);
     let basic_block = context.append_basic_block(function, "entry");
     builder.position_at_end(basic_block);
 }
+
+#[cfg(test)]
+fn setup_codegen_tests(codegen: &mut CodeGen) {
+    let fn_type = codegen.i32_type.fn_type(&[], false);
+    let function = codegen.module.add_function("main", fn_type, None);
+    let basic_block = codegen.context.append_basic_block(function, "entry");
+    codegen.builder.position_at_end(basic_block);
+}
+
 mod scope_tests {
     #[cfg(test)]
     use super::*;
@@ -310,7 +327,7 @@ mod scope_tests {
         let context = Context::create();
         let module = context.create_module("test");
         let builder = context.create_builder();
-        setup_test(&context, &module, &builder);
+        setup_scope_tests(&context, &module, &builder);
         let mut scope = BassoonScope::new();
 
         let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
@@ -325,7 +342,7 @@ mod scope_tests {
         let context = Context::create();
         let module = context.create_module("test");
         let builder = context.create_builder();
-        setup_test(&context, &module, &builder);
+        setup_scope_tests(&context, &module, &builder);
         let mut scope = BassoonScope::new();
 
         let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
@@ -340,7 +357,7 @@ mod scope_tests {
         let context = Context::create();
         let module = context.create_module("test");
         let builder = context.create_builder();
-        setup_test(&context, &module, &builder);
+        setup_scope_tests(&context, &module, &builder);
         let mut scope = BassoonScope::new();
 
         let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
@@ -358,7 +375,7 @@ mod scope_tests {
         let context = Context::create();
         let module = context.create_module("test");
         let builder = context.create_builder();
-        setup_test(&context, &module, &builder);
+        setup_scope_tests(&context, &module, &builder);
         let scope = BassoonScope::new();
 
         let None = scope.reference_lookup("bobbis".to_string()) else {
@@ -372,7 +389,7 @@ mod scope_tests {
         let context = Context::create();
         let module = context.create_module("test");
         let builder = context.create_builder();
-        setup_test(&context, &module, &builder);
+        setup_scope_tests(&context, &module, &builder);
         let mut scope = BassoonScope::new();
 
         let Ok(value_1) = builder.build_alloca(context.i32_type(), "test1") else {
@@ -420,5 +437,36 @@ mod scope_tests {
             panic!()
         };
         assert_eq!(val_1.get_name().to_str().unwrap(), "test1");
+    }
+}
+
+mod codegen_tests {
+    use crate::parser;
+
+    #[cfg(test)]
+    use super::*;
+
+    #[test]
+    fn test_temp_name() {
+        let context = Context::create();
+        let mut codegen = CodeGen::new(&context);
+        setup_codegen_tests(&mut codegen);
+
+        let Ok(statement) = parser::_parse_statement("a of int = 3;") else {
+            // TODO fix with some way of creating ASTs properly rather than relying on parser
+            panic!()
+        };
+
+        match codegen.statement_build(statement) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("failed {:?}", e);
+                panic!()
+            }
+        };
+
+        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+
+        assert_eq!("define i32 @main() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
     }
 }
