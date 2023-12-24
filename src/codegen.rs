@@ -250,6 +250,14 @@ fn test_scope_push_and_pop() {
     scope.end_scope("test1".to_string()).unwrap();
 }
 
+#[test]
+#[should_panic]
+fn test_scope_error_if_source_mismatch() {
+    let mut scope = BassoonScope::new();
+    scope.start_scope("test1".to_string());
+    scope.end_scope("test2".to_string()).unwrap();
+}
+
 #[cfg(test)]
 fn setup_test<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builder: &Builder<'ctx>) {
     let fn_type = context.i32_type().fn_type(&[], false);
@@ -273,6 +281,22 @@ fn test_scope_add() {
 }
 
 #[test]
+#[should_panic]
+fn test_scope_add_fails_for_shadow() {
+    let context = Context::create();
+    let module = context.create_module("test");
+    let builder = context.create_builder();
+    setup_test(&context, &module, &builder);
+    let mut scope = BassoonScope::new();
+
+    let Ok(value) = builder.build_alloca(context.i32_type(), "test") else {
+        panic!()
+    };
+    scope.add_to_scope("bobbis".to_string(), value).unwrap();
+    scope.add_to_scope("bobbis".to_string(), value).unwrap();
+}
+
+#[test]
 fn test_scope_add_get() {
     let context = Context::create();
     let module = context.create_module("test");
@@ -286,6 +310,19 @@ fn test_scope_add_get() {
     scope.add_to_scope("bobbis".to_string(), value).unwrap();
 
     let Some(_) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+}
+
+#[test]
+fn test_scope_add_get_gives_none() {
+    let context = Context::create();
+    let module = context.create_module("test");
+    let builder = context.create_builder();
+    setup_test(&context, &module, &builder);
+    let scope = BassoonScope::new();
+
+    let None = scope.reference_lookup("bobbis".to_string()) else {
         panic!()
     };
 }
