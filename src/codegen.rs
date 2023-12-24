@@ -145,14 +145,49 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     // TODO sort out return type for success - what even is it?
-    fn statement_build(&self, statement: Box<ASTStatement>) -> Result<(), CodegenError> {
+    fn statement_build(&mut self, statement: Box<ASTStatement>) -> Result<(), CodegenError> {
         match *statement {
             ASTStatement::Assign(identifier, expr) => {
-                // TODO lookup in existing scope of identifiers, else error
+                let Some(alloca) = self.scope.reference_lookup(identifier) else {
+                    return Err(CodegenError::Scope(
+                        "Trying to reference a variable that is not in scope".to_string(),
+                    ));
+                };
+                // make value from expr
+                let value = self.int_expr_build(expr)?;
+                // make store
+                self.builder
+                    .build_store(alloca, value)
+                    .map_err(CodegenError::from)?;
                 Ok(())
             }
-            ASTStatement::Decl(identifier, typ) => Ok(()),
-            ASTStatement::Init(identifier, typ, expr) => Ok(()),
+            ASTStatement::Decl(identifier, typ) => {
+                // make alloca
+                // TODO update alloca name?
+                let alloca = self
+                    .builder
+                    .build_alloca(self.i32_type, &identifier)
+                    .map_err(CodegenError::from)?;
+                // try to add to current scope
+                self.scope.add_to_scope(identifier, alloca)?;
+                Ok(())
+            }
+            ASTStatement::Init(identifier, typ, expr) => {
+                // make alloca
+                let alloca = self
+                    .builder
+                    .build_alloca(self.i32_type, &identifier)
+                    .map_err(CodegenError::from)?;
+                // try to add to current scope
+                self.scope.add_to_scope(identifier, alloca)?;
+                // make value from expr
+                let value = self.int_expr_build(expr)?;
+                // make store
+                self.builder
+                    .build_store(alloca, value)
+                    .map_err(CodegenError::from)?;
+                Ok(())
+            }
             _ => Err(CodegenError::NotImplemented(
                 "Non assign, decl, init statement".to_string(),
             )),
@@ -165,22 +200,23 @@ impl<'ctx> CodeGen<'ctx> {
         match *arith {
             Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
             Expr::Id(identifier) => {
-                if let Some(val) = self.scope.reference_lookup("TODO temp".to_string()) {
+                if let Some(val) = self.scope.reference_lookup(identifier) {
                     match val.as_basic_value_enum() {
                         //TODO remove unwrap
                         BasicValueEnum::PointerValue(v) => Ok(self
                             .builder
-                            .build_load(v, "load-int")
+                            .build_load(
+                                v,
+                                format!("load-int-{}", v.get_name().to_str().unwrap()).as_str(),
+                            )
                             .unwrap()
                             .into_int_value()),
-                        _ => {
-                            return Err(CodegenError::NotImplemented(
-                                "Not implemented loads for non-ints yet".to_string(),
-                            ))
-                        }
+                        _ => Err(CodegenError::NotImplemented(
+                            "Not implemented loads for non-ints yet".to_string(),
+                        )),
                     }
                 } else {
-                    return Err(CodegenError::Temp("Variable lookup failed".to_string()));
+                    Err(CodegenError::Temp("Variable lookup failed".to_string()))
                 }
             }
             Expr::BinOp(l, op, r) => {
