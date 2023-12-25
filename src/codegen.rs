@@ -109,19 +109,21 @@ struct CodeGen<'ctx> {
 
     // types
     i32_type: IntType<'ctx>,
+    bool_type: IntType<'ctx>,
 
     // data structures
     scope: BassoonScope<'ctx>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
-    fn new(mut context: &'ctx Context) -> Self {
+    fn new(context: &'ctx Context) -> Self {
         CodeGen {
             context,
             module: context.create_module("new"),
             builder: context.create_builder(),
             // execution_engine,
             i32_type: context.i32_type(),
+            bool_type: context.i8_type(),
             scope: BassoonScope::new(),
         }
     }
@@ -208,6 +210,9 @@ impl<'ctx> CodeGen<'ctx> {
         match *arith {
             Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
             Expr::Id(identifier) => {
+                // TODO include types in bindings in scope
+                // TODO wrap this in a function that does this lookup and verifies against some type, returning a basic value
+                // That we can then turn into the type we want with another helper function that will try to do that
                 if let Some(val) = self.scope.reference_lookup(identifier) {
                     match val.as_basic_value_enum() {
                         //TODO remove unwrap
@@ -259,6 +264,19 @@ impl<'ctx> CodeGen<'ctx> {
             )),
         }
     }
+
+    fn bool_expr_build(&self, expr: Box<Expr>) -> Result<IntValue, CodegenError> {
+        match *expr {
+            Expr::Bool(true) => Ok(self.bool_type.const_int(1, false)),
+            Expr::Bool(false) => Ok(self.bool_type.const_int(0, false)),
+            Expr::Id(identifier) => Err(CodegenError::NotImplemented(
+                "not implemented yet".to_string(),
+            )),
+            _ => Err(CodegenError::NotImplemented(
+                "not implemented yet".to_string(),
+            )),
+        }
+    }
 }
 
 pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
@@ -272,6 +290,7 @@ pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
         builder: context.create_builder(),
         // execution_engine,
         i32_type: context.i32_type(),
+        bool_type: context.i8_type(),
         scope,
     };
 

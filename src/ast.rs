@@ -28,9 +28,11 @@ pub enum ASTFunc {
 
 pub struct ASTArgs(pub Vec<Box<ASTStatement>>);
 
+// TODO actually parse bool literals
 pub enum Expr {
     Int(i32),
     Float(f32),
+    Bool(bool),
     Literal(String),
     Id(String),
     Array(Vec<Box<Expr>>),
