@@ -143,6 +143,7 @@ impl Debug for Expr {
         match *self {
             Int(i) => write!(fmt, "{:?}", i),
             Float(f) => write!(fmt, "{:?}", f),
+            Bool(b) => write!(fmt, "{:?}", b),
             Literal(ref s) => write!(fmt, "\"{s}\""),
             Id(ref s) => write!(fmt, "{s}"),
             Array(ref elements) => write!(fmt, "{:?}", elements),
