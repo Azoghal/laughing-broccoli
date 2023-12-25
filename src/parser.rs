@@ -92,6 +92,12 @@ fn numbers() {
 }
 
 #[test]
+fn bools() {
+    parse_expr_and_check("false", "false");
+    parse_expr_and_check("true", "true");
+}
+
+#[test]
 fn arrays() {
     parse_expr_and_check("[1,2,3,4,bob]", "[1, 2, 3, 4, bob]")
 }

@@ -168,8 +168,8 @@ Lit: String = {
 };
 
 Bool: Box<Expr> = {
-    "true" => Expr::Bool(true),
-    "false" => Expr::Bool(false),
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
 }
 
 pub Type: Box<ASTType> = {
