@@ -110,7 +110,11 @@ struct CodeGen<'ctx> {
     // types
     i32_type: IntType<'ctx>,
     bool_type: IntType<'ctx>,
+}
 
+// Going to give this a go to separate out things that take actions, and the data structures that they interact with
+// to get around borrowing self as mutable just to interact with the scoping which isn't really part of the builder.
+struct Program<'ctx> {
     // data structures
     scope: BassoonScope<'ctx>,
 }
@@ -124,7 +128,7 @@ impl<'ctx> CodeGen<'ctx> {
             // execution_engine,
             i32_type: context.i32_type(),
             bool_type: context.i8_type(),
-            scope: BassoonScope::new(),
+            // scope: BassoonScope::new(),
         }
     }
 
@@ -144,8 +148,12 @@ impl<'ctx> CodeGen<'ctx> {
         let basic_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(basic_block);
 
+        let mut program = Program {
+            scope: BassoonScope::new(),
+        };
+
         // build an arithmetic expression
-        if let Ok(val) = self.int_expr_build(arith) {
+        if let Ok(val) = self.int_expr_build(arith, &mut program) {
             self.builder.build_return(Some(&val)).unwrap();
         } else {
             self.builder.build_return(None).unwrap();
@@ -155,16 +163,20 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     // TODO sort out return type for success - what even is it?
-    fn statement_build(&mut self, statement: Box<ASTStatement>) -> Result<(), CodegenError> {
+    fn statement_build(
+        &self,
+        statement: Box<ASTStatement>,
+        program: &mut Program<'ctx>,
+    ) -> Result<(), CodegenError> {
         match *statement {
             ASTStatement::Assign(identifier, expr) => {
-                let Some(alloca) = self.scope.reference_lookup(identifier) else {
+                let Some(alloca) = program.scope.reference_lookup(identifier) else {
                     return Err(CodegenError::Scope(
                         "Trying to reference a variable that is not in scope".to_string(),
                     ));
                 };
                 // make value from expr
-                let value = self.int_expr_build(expr)?;
+                let value = self.int_expr_build(expr, program)?;
                 // make store
                 self.builder
                     .build_store(alloca, value)
@@ -179,7 +191,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_alloca(self.i32_type, &identifier)
                     .map_err(CodegenError::from)?;
                 // try to add to current scope
-                self.scope.add_to_scope(identifier, alloca)?;
+                program.scope.add_to_scope(identifier, alloca)?;
                 Ok(())
             }
             ASTStatement::Init(identifier, typ, expr) => {
@@ -189,13 +201,26 @@ impl<'ctx> CodeGen<'ctx> {
                     .build_alloca(self.i32_type, &identifier)
                     .map_err(CodegenError::from)?;
                 // try to add to current scope
-                self.scope.add_to_scope(identifier, alloca)?;
+                program.scope.add_to_scope(identifier, alloca)?;
                 // make value from expr
-                let value = self.int_expr_build(expr)?;
+                let value = self.int_expr_build(expr, program)?;
                 // make store
                 self.builder
                     .build_store(alloca, value)
                     .map_err(CodegenError::from)?;
+                Ok(())
+            }
+            ASTStatement::If(iff, elsif_conds, els) => {
+                let cond_val = self.bool_expr_build(iff.0);
+                let st = self.statement_build(iff.1, program);
+
+                let comp_res = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    cond_val.unwrap(),
+                    self.bool_type.const_int(1, false),
+                    "bool-comp",
+                );
+
                 Ok(())
             }
             _ => Err(CodegenError::NotImplemented(
@@ -206,14 +231,18 @@ impl<'ctx> CodeGen<'ctx> {
 
     // TODO This only works for integer things
     // This is a small builder that will only build for arithmetic
-    fn int_expr_build(&self, arith: Box<Expr>) -> Result<IntValue, CodegenError> {
+    fn int_expr_build(
+        &self,
+        arith: Box<Expr>,
+        program: &Program<'ctx>,
+    ) -> Result<IntValue, CodegenError> {
         match *arith {
             Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
             Expr::Id(identifier) => {
                 // TODO include types in bindings in scope
                 // TODO wrap this in a function that does this lookup and verifies against some type, returning a basic value
                 // That we can then turn into the type we want with another helper function that will try to do that
-                if let Some(val) = self.scope.reference_lookup(identifier) {
+                if let Some(val) = program.scope.reference_lookup(identifier) {
                     match val.as_basic_value_enum() {
                         //TODO remove unwrap
                         BasicValueEnum::PointerValue(v) => Ok(self
@@ -233,8 +262,8 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             Expr::BinOp(l, op, r) => {
-                let left = self.int_expr_build(l)?;
-                let right = self.int_expr_build(r)?;
+                let left = self.int_expr_build(l, program)?;
+                let right = self.int_expr_build(r, program)?;
                 match op {
                     BinOpcode::Add => {
                         info!("making a binop add");
@@ -282,7 +311,9 @@ impl<'ctx> CodeGen<'ctx> {
 pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let module = context.create_module("sum");
-    let scope = BassoonScope::new();
+    // let program: Program = Program {
+    //     scope: BassoonScope::new(),
+    // };
 
     let codegen = CodeGen {
         context: &context,
@@ -291,7 +322,7 @@ pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
         // execution_engine,
         i32_type: context.i32_type(),
         bool_type: context.i8_type(),
-        scope,
+        // scope,
     };
 
     codegen.main_build(arith_expr);
@@ -470,13 +501,16 @@ mod codegen_tests {
         let context = Context::create();
         let mut codegen = CodeGen::new(&context);
         setup_codegen_tests(&mut codegen);
+        let mut program: Program = Program {
+            scope: BassoonScope::new(),
+        };
 
         let Ok(statement) = parser::_parse_statement("a of int = 3;") else {
             // TODO fix with some way of creating ASTs properly rather than relying on parser
             panic!()
         };
 
-        match codegen.statement_build(statement) {
+        match codegen.statement_build(statement, &mut program) {
             Ok(_) => {}
             Err(e) => {
                 println!("failed {:?}", e);
