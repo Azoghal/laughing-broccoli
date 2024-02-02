@@ -1,3 +1,4 @@
+use inkwell::basic_block::BasicBlock;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::module::Module;
@@ -41,6 +42,7 @@ impl fmt::Display for CodegenError {
 struct Program<'ctx> {
     // data structures
     scope: BassoonScope<'ctx>,
+    current_function: String,
 }
 
 struct BassoonScope<'ctx> {
@@ -151,6 +153,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         let mut program = Program {
             scope: BassoonScope::new(),
+            current_function: function.get_name().to_str().unwrap().to_string(),
         };
 
         // build an arithmetic expression
@@ -213,14 +216,51 @@ impl<'ctx> CodeGen<'ctx> {
             }
             ASTStatement::If(iff, elsif_conds, els) => {
                 let cond_val = self.bool_expr_build(iff.0);
-                let st = self.statement_build(iff.1, program);
 
-                let comp_res = self.builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    cond_val.unwrap(),
-                    self.bool_type.const_int(1, false),
-                    "bool-comp",
-                );
+                let comp_res = self
+                    .builder
+                    .build_int_compare(
+                        inkwell::IntPredicate::EQ,
+                        cond_val.unwrap(),
+                        self.bool_type.const_int(1, false),
+                        "bool-comp",
+                    )
+                    .map_err(CodegenError::from)?;
+
+                let Some(top_level_block) = self.builder.get_insert_block() else {
+                    return Err(CodegenError::Temp(
+                        "failed to remember current basic block".to_string(),
+                    ));
+                };
+
+                // Now we need to append two new basic blocks to the end of the current function
+                // First append a then block, and move to the start of it, then build the block
+                let Some(current_function) = self.module.get_function(&program.current_function)
+                else {
+                    return Err(CodegenError::Temp(
+                        "builder could not find current function".to_string(),
+                    ));
+                };
+                let if_block = self.context.append_basic_block(current_function, "if");
+                self.builder.position_at_end(if_block);
+                self.statement_build(iff.1, program)?;
+
+                // TODO don't forget to loop and do the same as above for any else ifs
+
+                // Then append the else block, and move to the start of it, then build that block
+                // by popping one off the vec, and building a new ASTStatement::If using it?
+
+                let else_block = self.context.append_basic_block(current_function, "else");
+                self.builder.position_at_end(else_block);
+                // If we have an else body, build it, otherwise this is the empty basic block that failing all if condition jumps to
+                if let Some(st) = els {
+                    self.statement_build(st, program)?;
+                }
+
+                self.builder.position_at_end(top_level_block);
+                self.builder
+                    .build_conditional_branch(comp_res, if_block, else_block)
+                    .map_err(CodegenError::from)?;
 
                 Ok(())
             }
@@ -335,11 +375,18 @@ fn setup_scope_tests<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builde
 }
 
 #[cfg(test)]
-fn setup_codegen_tests(codegen: &mut CodeGen) {
+fn setup_codegen_tests<'ctx>(codegen: &mut CodeGen) -> Program<'ctx> {
     let fn_type = codegen.i32_type.fn_type(&[], false);
     let function = codegen.module.add_function("main", fn_type, None);
     let basic_block = codegen.context.append_basic_block(function, "entry");
     codegen.builder.position_at_end(basic_block);
+
+    let mut program: Program = Program {
+        scope: BassoonScope::new(),
+        current_function: "main".to_string(),
+    };
+
+    return program;
 }
 
 mod scope_tests {
@@ -488,8 +535,6 @@ mod scope_tests {
 }
 
 mod codegen_tests {
-    use inkwell::values::PointerMathValue;
-
     use crate::parser;
 
     #[cfg(test)]
@@ -499,10 +544,7 @@ mod codegen_tests {
     fn test_init() {
         let context = Context::create();
         let mut codegen = CodeGen::new(&context);
-        setup_codegen_tests(&mut codegen);
-        let mut program: Program = Program {
-            scope: BassoonScope::new(),
-        };
+        let mut program = setup_codegen_tests(&mut codegen);
 
         let Ok(statement) = parser::_parse_statement("a of int = 3;") else {
             // TODO fix with some way of creating ASTs properly rather than relying on parser
@@ -526,10 +568,7 @@ mod codegen_tests {
     fn test_decl_assign() {
         let context = Context::create();
         let mut codegen = CodeGen::new(&context);
-        setup_codegen_tests(&mut codegen);
-        let mut program: Program = Program {
-            scope: BassoonScope::new(),
-        };
+        let mut program = setup_codegen_tests(&mut codegen);
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
