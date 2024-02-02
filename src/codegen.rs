@@ -1,7 +1,7 @@
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::IntType;
+use inkwell::types::{FloatType, IntType};
 use inkwell::values::{
     AnyValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
@@ -10,7 +10,7 @@ use tracing::{error, info};
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ast::{ASTStatement, BinOpcode, Expr};
+use crate::ast::{ASTStatement, ASTType, BinOpcode, Expr};
 
 #[derive(Debug)]
 pub enum CodegenError {
@@ -35,6 +35,12 @@ impl fmt::Display for CodegenError {
             Self::Scope(msg) => write!(f, "scoping issue: {msg}"),
         }
     }
+}
+
+// For build time data structures
+struct Program<'ctx> {
+    // data structures
+    scope: BassoonScope<'ctx>,
 }
 
 struct BassoonScope<'ctx> {
@@ -110,13 +116,7 @@ struct CodeGen<'ctx> {
     // types
     i32_type: IntType<'ctx>,
     bool_type: IntType<'ctx>,
-}
-
-// Going to give this a go to separate out things that take actions, and the data structures that they interact with
-// to get around borrowing self as mutable just to interact with the scoping which isn't really part of the builder.
-struct Program<'ctx> {
-    // data structures
-    scope: BassoonScope<'ctx>,
+    f32_type: FloatType<'ctx>,
 }
 
 impl<'ctx> CodeGen<'ctx> {
@@ -128,6 +128,7 @@ impl<'ctx> CodeGen<'ctx> {
             // execution_engine,
             i32_type: context.i32_type(),
             bool_type: context.i8_type(),
+            f32_type: context.f32_type(),
             // scope: BassoonScope::new(),
         }
     }
@@ -311,18 +312,14 @@ impl<'ctx> CodeGen<'ctx> {
 pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let module = context.create_module("sum");
-    // let program: Program = Program {
-    //     scope: BassoonScope::new(),
-    // };
 
     let codegen = CodeGen {
         context: &context,
         module,
         builder: context.create_builder(),
-        // execution_engine,
         i32_type: context.i32_type(),
         bool_type: context.i8_type(),
-        // scope,
+        f32_type: context.f32_type(),
     };
 
     codegen.main_build(arith_expr);
@@ -491,13 +488,15 @@ mod scope_tests {
 }
 
 mod codegen_tests {
+    use inkwell::values::PointerMathValue;
+
     use crate::parser;
 
     #[cfg(test)]
     use super::*;
 
     #[test]
-    fn test_temp_name() {
+    fn test_init() {
         let context = Context::create();
         let mut codegen = CodeGen::new(&context);
         setup_codegen_tests(&mut codegen);
@@ -511,6 +510,47 @@ mod codegen_tests {
         };
 
         match codegen.statement_build(statement, &mut program) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("failed {:?}", e);
+                panic!()
+            }
+        };
+
+        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+
+        assert_eq!("define i32 @main() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
+    }
+
+    #[test]
+    fn test_decl_assign() {
+        let context = Context::create();
+        let mut codegen = CodeGen::new(&context);
+        setup_codegen_tests(&mut codegen);
+        let mut program: Program = Program {
+            scope: BassoonScope::new(),
+        };
+
+        // Add a declaration, includes "a" in scope
+        match codegen.statement_build(
+            Box::new(ASTStatement::Decl("a".to_string(), Box::new(ASTType::Int))),
+            &mut program,
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("failed {:?}", e);
+                panic!()
+            }
+        };
+
+        // Do the assignment, for "a" that was found in scope
+        match codegen.statement_build(
+            Box::new(ASTStatement::Assign(
+                "a".to_string(),
+                Box::new(Expr::Int(3)),
+            )),
+            &mut program,
+        ) {
             Ok(_) => {}
             Err(e) => {
                 println!("failed {:?}", e);
