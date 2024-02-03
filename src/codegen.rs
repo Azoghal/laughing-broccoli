@@ -535,7 +535,7 @@ mod scope_tests {
 }
 
 mod codegen_tests {
-    use crate::parser;
+    use crate::{ast::CondBlock, parser};
 
     #[cfg(test)]
     use super::*;
@@ -599,6 +599,67 @@ mod codegen_tests {
 
         let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
 
+        /*
+        define i32 @main() {
+            entry:
+                %a = alloca i32, align 4
+                store i32 3, ptr %a, align 4
+        }
+        */
+
         assert_eq!("define i32 @main() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
+    }
+
+    #[test]
+    fn test_if_else() {
+        let context = Context::create();
+        let mut codegen = CodeGen::new(&context);
+        let mut program = setup_codegen_tests(&mut codegen);
+
+        // Add a declaration, includes "a" in scope
+        match codegen.statement_build(
+            Box::new(ASTStatement::If(
+                CondBlock(
+                    Box::new(Expr::Bool(true)),
+                    Box::new(ASTStatement::Init(
+                        "a".to_string(),
+                        Box::new(ASTType::Int),
+                        Box::new(Expr::Int(3)),
+                    )),
+                ),
+                Vec::new(),
+                Some(Box::new(ASTStatement::Init(
+                    "b".to_string(),
+                    Box::new(ASTType::Int),
+                    Box::new(Expr::Int(3)),
+                ))),
+            )),
+            &mut program,
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                println!("failed {:?}", e);
+                panic!()
+            }
+        };
+
+        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+
+        /*
+        define i32 @main() {
+            entry:
+                br i1 true, label %if, label %else
+
+            if: ; preds = %entry
+                %a = alloca i32, align 4
+                store i32 3, ptr %a, align 4
+
+            else: ; preds = %entry
+                %b = alloca i32, align 4
+                store i32 3, ptr %b, align 4
+        }
+
+        */
+        assert_eq!("define i32 @main() {\nentry:\n  br i1 true, label %if, label %else\n\nif:                                               ; preds = %entry\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n\nelse:                                             ; preds = %entry\n  %b = alloca i32, align 4\n  store i32 3, ptr %b, align 4\n}\n", output)
     }
 }
