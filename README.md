@@ -18,3 +18,6 @@ First pass complete, probably a few things will pop up as codegen developed.
 - Codegen for new language features
     - arrays
     - indexing
+
+
+Readme bump to trigger CI
