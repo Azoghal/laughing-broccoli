@@ -410,3 +410,16 @@ fn test_scope_add_get_multi_scope() {
         _ => panic!(),
     }
 }
+
+#[test]
+fn test_for_cu() {
+    let context = Context::create();
+    let mut scope = BassoonScope::new();
+
+    let value_1 = context.i32_type().const_int(23, false);
+    scope.add_to_scope("bobbis".to_string(), &value_1).unwrap();
+
+    let Some(val_1) = scope.reference_lookup("bobbis".to_string()) else {
+        panic!()
+    };
+}
