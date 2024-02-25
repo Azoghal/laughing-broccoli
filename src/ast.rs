@@ -28,9 +28,11 @@ pub enum ASTFunc {
 
 pub struct ASTArgs(pub Vec<Box<ASTStatement>>);
 
+// TODO actually parse bool literals
 pub enum Expr {
     Int(i32),
     Float(f32),
+    Bool(bool),
     Literal(String),
     Id(String),
     Array(Vec<Box<Expr>>),
@@ -141,6 +143,7 @@ impl Debug for Expr {
         match *self {
             Int(i) => write!(fmt, "{:?}", i),
             Float(f) => write!(fmt, "{:?}", f),
+            Bool(b) => write!(fmt, "{:?}", b),
             Literal(ref s) => write!(fmt, "\"{s}\""),
             Id(ref s) => write!(fmt, "{s}"),
             Array(ref elements) => write!(fmt, "{:?}", elements),

@@ -20,6 +20,8 @@ match{
     "of",
     "int",
     "float",
+    "true",
+    "false",
     r#""[\P{Cc}\P{Cn}]*""# => Str 
 }else{
     r"\w+" => Id,
@@ -133,6 +135,7 @@ SfxOp: SfxOpcode = {
 
 Term: Box<Expr> = {
     Num,
+    Bool,
     Lit => Box::new(Expr::Literal(<>)),
     Id => Box::new(Expr::Id(<>.into())),
     "[" <elems:Comma<Expr>> "]" => Box::new(Expr::Array(<>)),
@@ -163,6 +166,11 @@ Num: Box<Expr> = {
 Lit: String = {
     <l:Str> => l[1..l.len()-1].into()
 };
+
+Bool: Box<Expr> = {
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
+}
 
 pub Type: Box<ASTType> = {
     "int" => Box::new(ASTType::Int),
