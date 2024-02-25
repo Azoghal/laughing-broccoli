@@ -1,15 +1,13 @@
-use inkwell::basic_block::BasicBlock;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{BasicMetadataTypeEnum, BasicType, FloatType, IntType};
+use inkwell::types::{BasicMetadataTypeEnum, FloatType, IntType};
 use inkwell::values::{
     AnyValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
-use tracing::{error, info};
+use tracing::info;
 
 use std::collections::HashMap;
-use std::f32::consts::E;
 use std::fmt;
 
 use crate::ast;
@@ -222,7 +220,7 @@ impl<'ctx> CodeGen<'ctx> {
                     ));
                 };
                 // make value from expr
-                let value = self.int_expr_build(expr, program)?;
+                let value = self.int_expr_build(*expr, program)?;
                 // make store
                 self.builder
                     .build_store(alloca, value)
@@ -249,7 +247,7 @@ impl<'ctx> CodeGen<'ctx> {
                 // try to add to current scope
                 program.scope.add_to_scope(identifier, alloca)?;
                 // make value from expr
-                let value = self.int_expr_build(expr, program)?;
+                let value = self.int_expr_build(*expr, program)?;
                 // make store
                 self.builder
                     .build_store(alloca, value)
@@ -257,7 +255,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(())
             }
             ast::Statement::If(iff, elsif_conds, els) => {
-                let cond_val = self.bool_expr_build(iff.0);
+                let cond_val = self.bool_expr_build(*iff.0);
 
                 let comp_res = self
                     .builder
@@ -307,7 +305,7 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(())
             }
             ast::Statement::Return(exp) => {
-                let expr_val = self.int_expr_build(exp, program)?;
+                let expr_val = self.int_expr_build(*exp, program)?;
                 self.builder.build_return(Some(&expr_val))?;
                 Ok(())
             }
@@ -327,10 +325,10 @@ impl<'ctx> CodeGen<'ctx> {
     // This is a small builder that will only build for arithmetic
     fn int_expr_build(
         &self,
-        arith: Box<ast::Expr>,
+        arith: ast::Expr,
         program: &Program<'ctx>,
     ) -> Result<IntValue, CodegenError> {
-        match *arith {
+        match arith {
             ast::Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
             ast::Expr::Id(identifier) => {
                 // TODO include types in bindings in scope
@@ -356,8 +354,8 @@ impl<'ctx> CodeGen<'ctx> {
                 }
             }
             ast::Expr::BinOp(l, op, r) => {
-                let left = self.int_expr_build(l, program)?;
-                let right = self.int_expr_build(r, program)?;
+                let left = self.int_expr_build(*l, program)?;
+                let right = self.int_expr_build(*r, program)?;
                 match op {
                     ast::BinOpcode::Add => {
                         info!("making a binop add");
@@ -388,22 +386,22 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn bool_expr_build(&self, expr: Box<ast::Expr>) -> Result<IntValue, CodegenError> {
-        match *expr {
+    fn bool_expr_build(&self, expr: ast::Expr) -> Result<IntValue, CodegenError> {
+        match expr {
             ast::Expr::Bool(true) => Ok(self.bool_type.const_int(1, false)),
             ast::Expr::Bool(false) => Ok(self.bool_type.const_int(0, false)),
             ast::Expr::Id(identifier) => Err(CodegenError::NotImplemented(
-                "not implemented yet".to_string(),
+                "bool loaded from identifier".to_string(),
             )),
             _ => Err(CodegenError::NotImplemented(
-                "not implemented yet".to_string(),
+                "bool_expr_build for non bool".to_string(),
             )),
         }
     }
 }
 
 // TODO update to take an ast::Func and then eventually an ast::Program
-pub fn emit(func: Box<ast::Func>) -> Result<(), CodegenError> {
+pub fn emit(func: ast::Func) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let codegen = CodeGen::new(&context, "main");
 
@@ -411,7 +409,7 @@ pub fn emit(func: Box<ast::Func>) -> Result<(), CodegenError> {
         scope: BassoonScope::new(),
         current_function: "main".to_string(),
     };
-    codegen.fn_build(*func, &mut program)
+    codegen.fn_build(func, &mut program)
 }
 
 #[cfg(test)]
