@@ -122,10 +122,10 @@ struct CodeGen<'ctx> {
 }
 
 impl<'ctx> CodeGen<'ctx> {
-    fn new(context: &'ctx Context) -> Self {
+    fn new(context: &'ctx Context, module_name: &str) -> Self {
         CodeGen {
             context,
-            module: context.create_module("main"),
+            module: context.create_module(module_name),
             builder: context.create_builder(),
             // execution_engine,
             i32_type: context.i32_type(),
@@ -144,10 +144,14 @@ impl<'ctx> CodeGen<'ctx> {
         function.print_to_string().to_string()
     }
 
-    // fn fn_build(&self, f: Box< )
+    fn fn_build(&self, f: Box<ast::Func>) -> Result<(), CodegenError> {
+        Err(CodegenError::NotImplemented(
+            "fn_build not implmented".to_string(),
+        ))
+    }
 
     // Starts a main function that returns an i32
-    fn main_build(&self, arith: Box<ast::Expr>) -> Result<(), CodegenError> {
+    fn expr_build(&self, arith: Box<ast::Expr>) -> Result<(), CodegenError> {
         let fn_type = self.i32_type.fn_type(&[], false);
         let function = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(function, "entry");
@@ -352,10 +356,16 @@ impl<'ctx> CodeGen<'ctx> {
     }
 }
 
-pub fn emit(arith_expr: Box<ast::Expr>) -> Result<(), CodegenError> {
+// TODO update to take an ast::Func and then eventually an ast::Program
+pub fn emit(statement: Box<ast::Statement>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
-    let codegen = CodeGen::new(&context);
-    codegen.main_build(arith_expr)
+    let codegen = CodeGen::new(&context, "main");
+
+    let mut program: Program = Program {
+        scope: BassoonScope::new(),
+        current_function: "main".to_string(),
+    };
+    codegen.statement_build(statement, &mut program)
 }
 
 #[cfg(test)]
@@ -519,15 +529,15 @@ mod codegen_tests {
     use crate::{ast, parser};
 
     #[cfg(test)]
-    fn setup_codegen_tests<'ctx>(codegen: &mut CodeGen) -> Program<'ctx> {
+    fn setup_codegen_tests<'ctx>(codegen: &mut CodeGen, func_name: &str) -> Program<'ctx> {
         let fn_type = codegen.i32_type.fn_type(&[], false);
-        let function = codegen.module.add_function("main", fn_type, None);
+        let function = codegen.module.add_function(func_name, fn_type, None);
         let basic_block = codegen.context.append_basic_block(function, "entry");
         codegen.builder.position_at_end(basic_block);
 
         let program: Program = Program {
             scope: BassoonScope::new(),
-            current_function: "main".to_string(),
+            current_function: func_name.to_string(),
         };
 
         program
@@ -536,10 +546,10 @@ mod codegen_tests {
     #[test]
     fn test_init() {
         let context = Context::create();
-        let mut codegen = CodeGen::new(&context);
-        let mut program = setup_codegen_tests(&mut codegen);
+        let mut codegen = CodeGen::new(&context, "test");
+        let mut program = setup_codegen_tests(&mut codegen, "test");
 
-        let Ok(statement) = parser::_parse_statement("a of int = 3;") else {
+        let Ok(statement) = parser::parse_statement("a of int = 3;") else {
             // TODO fix with some way of creating ASTs properly rather than relying on parser
             panic!()
         };
@@ -552,16 +562,16 @@ mod codegen_tests {
             }
         };
 
-        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+        let output = codegen.print_llvm_function(codegen.module.get_function("test").unwrap());
 
-        assert_eq!("define i32 @main() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
+        assert_eq!("define i32 @test() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
     }
 
     #[test]
     fn test_decl_assign() {
         let context = Context::create();
-        let mut codegen = CodeGen::new(&context);
-        let mut program = setup_codegen_tests(&mut codegen);
+        let mut codegen = CodeGen::new(&context, "test");
+        let mut program = setup_codegen_tests(&mut codegen, "test");
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
@@ -593,24 +603,24 @@ mod codegen_tests {
             }
         };
 
-        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+        let output = codegen.print_llvm_function(codegen.module.get_function("test").unwrap());
 
         /*
-        define i32 @main() {
+        define i32 @test() {
             entry:
                 %a = alloca i32, align 4
                 store i32 3, ptr %a, align 4
         }
         */
 
-        assert_eq!("define i32 @main() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
+        assert_eq!("define i32 @test() {\nentry:\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n}\n", output)
     }
 
     #[test]
     fn test_if_else() {
         let context = Context::create();
-        let mut codegen = CodeGen::new(&context);
-        let mut program = setup_codegen_tests(&mut codegen);
+        let mut codegen = CodeGen::new(&context, "test");
+        let mut program = setup_codegen_tests(&mut codegen, "test");
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
@@ -639,10 +649,10 @@ mod codegen_tests {
             }
         };
 
-        let output = codegen.print_llvm_function(codegen.module.get_function("main").unwrap());
+        let output = codegen.print_llvm_function(codegen.module.get_function("test").unwrap());
 
         /*
-        define i32 @main() {
+        define i32 @test() {
             entry:
                 br i1 true, label %if, label %else
 
@@ -656,6 +666,6 @@ mod codegen_tests {
         }
 
         */
-        assert_eq!("define i32 @main() {\nentry:\n  br i1 true, label %if, label %else\n\nif:                                               ; preds = %entry\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n\nelse:                                             ; preds = %entry\n  %b = alloca i32, align 4\n  store i32 3, ptr %b, align 4\n}\n", output)
+        assert_eq!("define i32 @test() {\nentry:\n  br i1 true, label %if, label %else\n\nif:                                               ; preds = %entry\n  %a = alloca i32, align 4\n  store i32 3, ptr %a, align 4\n\nelse:                                             ; preds = %entry\n  %b = alloca i32, align 4\n  store i32 3, ptr %b, align 4\n}\n", output)
     }
 }

@@ -24,7 +24,7 @@ fn main() {
 
     info!("Doing some parsing");
 
-    match parser::parse_expr("1 + 2") {
+    match parser::parse_statement("a of int = 1 + 2;") {
         Err(err) => {
             error!("Done failed to parse an expression: {err}");
         }
