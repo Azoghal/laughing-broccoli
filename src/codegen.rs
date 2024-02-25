@@ -11,7 +11,7 @@ use tracing::{error, info};
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ast::{ASTStatement, ASTType, BinOpcode, Expr};
+use crate::ast::{ASTFunc, ASTStatement, ASTType, BinOpcode, Expr};
 
 #[derive(Debug)]
 pub enum CodegenError {
@@ -125,7 +125,7 @@ impl<'ctx> CodeGen<'ctx> {
     fn new(context: &'ctx Context) -> Self {
         CodeGen {
             context,
-            module: context.create_module("new"),
+            module: context.create_module("main"),
             builder: context.create_builder(),
             // execution_engine,
             i32_type: context.i32_type(),
@@ -144,8 +144,10 @@ impl<'ctx> CodeGen<'ctx> {
         function.print_to_string().to_string()
     }
 
+    // fn fn_build(&self, f: Box< )
+
     // Starts a main function that returns an i32
-    fn main_build(&self, arith: Box<Expr>) {
+    fn main_build(&self, arith: Box<Expr>) -> Result<(), CodegenError> {
         let fn_type = self.i32_type.fn_type(&[], false);
         let function = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(function, "entry");
@@ -164,6 +166,7 @@ impl<'ctx> CodeGen<'ctx> {
         }
 
         self.print_llvm_function(function);
+        Ok(())
     }
 
     // TODO sort out return type for success - what even is it?
@@ -349,21 +352,10 @@ impl<'ctx> CodeGen<'ctx> {
     }
 }
 
-pub fn main_build(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
+pub fn emit(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
-    let module = context.create_module("sum");
-
-    let codegen = CodeGen {
-        context: &context,
-        module,
-        builder: context.create_builder(),
-        i32_type: context.i32_type(),
-        bool_type: context.i8_type(),
-        f32_type: context.f32_type(),
-    };
-
-    codegen.main_build(arith_expr);
-    Ok(())
+    let codegen = CodeGen::new(&context);
+    codegen.main_build(arith_expr)
 }
 
 #[cfg(test)]

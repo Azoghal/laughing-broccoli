@@ -30,7 +30,7 @@ fn main() {
         }
         Ok(arith_expr) => {
             info!("Doing some codegen-ing");
-            if let Err(err) = codegen::main_build(arith_expr) {
+            if let Err(err) = codegen::emit(arith_expr) {
                 error!("Done failed to code gen {err}");
             };
         }
