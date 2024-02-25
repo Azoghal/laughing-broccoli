@@ -366,21 +366,6 @@ fn setup_scope_tests<'ctx>(context: &'ctx Context, module: &Module<'ctx>, builde
     builder.position_at_end(basic_block);
 }
 
-#[cfg(test)]
-fn setup_codegen_tests<'ctx>(codegen: &mut CodeGen) -> Program<'ctx> {
-    let fn_type = codegen.i32_type.fn_type(&[], false);
-    let function = codegen.module.add_function("main", fn_type, None);
-    let basic_block = codegen.context.append_basic_block(function, "entry");
-    codegen.builder.position_at_end(basic_block);
-
-    let mut program: Program = Program {
-        scope: BassoonScope::new(),
-        current_function: "main".to_string(),
-    };
-
-    return program;
-}
-
 mod scope_tests {
     #[cfg(test)]
     use super::*;
@@ -527,10 +512,26 @@ mod scope_tests {
 }
 
 mod codegen_tests {
-    use crate::{ast::CondBlock, parser};
 
     #[cfg(test)]
     use super::*;
+    #[cfg(test)]
+    use crate::{ast, parser};
+
+    #[cfg(test)]
+    fn setup_codegen_tests<'ctx>(codegen: &mut CodeGen) -> Program<'ctx> {
+        let fn_type = codegen.i32_type.fn_type(&[], false);
+        let function = codegen.module.add_function("main", fn_type, None);
+        let basic_block = codegen.context.append_basic_block(function, "entry");
+        codegen.builder.position_at_end(basic_block);
+
+        let program: Program = Program {
+            scope: BassoonScope::new(),
+            current_function: "main".to_string(),
+        };
+
+        program
+    }
 
     #[test]
     fn test_init() {
@@ -614,7 +615,7 @@ mod codegen_tests {
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
             Box::new(ast::Statement::If(
-                CondBlock(
+                ast::CondBlock(
                     Box::new(ast::Expr::Bool(true)),
                     Box::new(ast::Statement::Init(
                         "a".to_string(),
