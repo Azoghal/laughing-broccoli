@@ -11,7 +11,7 @@ use tracing::{error, info};
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ast::{BinOpcode, Expr, Func, Statement, Type};
+use crate::ast;
 
 #[derive(Debug)]
 pub enum CodegenError {
@@ -147,7 +147,7 @@ impl<'ctx> CodeGen<'ctx> {
     // fn fn_build(&self, f: Box< )
 
     // Starts a main function that returns an i32
-    fn main_build(&self, arith: Box<Expr>) -> Result<(), CodegenError> {
+    fn main_build(&self, arith: Box<ast::Expr>) -> Result<(), CodegenError> {
         let fn_type = self.i32_type.fn_type(&[], false);
         let function = self.module.add_function("main", fn_type, None);
         let basic_block = self.context.append_basic_block(function, "entry");
@@ -172,11 +172,11 @@ impl<'ctx> CodeGen<'ctx> {
     // TODO sort out return type for success - what even is it?
     fn statement_build(
         &self,
-        statement: Box<Statement>,
+        statement: Box<ast::Statement>,
         program: &mut Program<'ctx>,
     ) -> Result<(), CodegenError> {
         match *statement {
-            Statement::Assign(identifier, expr) => {
+            ast::Statement::Assign(identifier, expr) => {
                 let Some(alloca) = program.scope.reference_lookup(identifier) else {
                     return Err(CodegenError::Scope(
                         "Trying to reference a variable that is not in scope".to_string(),
@@ -190,7 +190,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .map_err(CodegenError::from)?;
                 Ok(())
             }
-            Statement::Decl(identifier, typ) => {
+            ast::Statement::Decl(identifier, typ) => {
                 // make alloca
                 // TODO update alloca name?
                 let alloca = self
@@ -201,7 +201,7 @@ impl<'ctx> CodeGen<'ctx> {
                 program.scope.add_to_scope(identifier, alloca)?;
                 Ok(())
             }
-            Statement::Init(identifier, typ, expr) => {
+            ast::Statement::Init(identifier, typ, expr) => {
                 // make alloca
                 let alloca = self
                     .builder
@@ -217,7 +217,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .map_err(CodegenError::from)?;
                 Ok(())
             }
-            Statement::If(iff, elsif_conds, els) => {
+            ast::Statement::If(iff, elsif_conds, els) => {
                 let cond_val = self.bool_expr_build(iff.0);
 
                 let comp_res = self
@@ -277,12 +277,12 @@ impl<'ctx> CodeGen<'ctx> {
     // This is a small builder that will only build for arithmetic
     fn int_expr_build(
         &self,
-        arith: Box<Expr>,
+        arith: Box<ast::Expr>,
         program: &Program<'ctx>,
     ) -> Result<IntValue, CodegenError> {
         match *arith {
-            Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
-            Expr::Id(identifier) => {
+            ast::Expr::Int(i) => Ok(self.i32_type.const_int(i as u64, false)),
+            ast::Expr::Id(identifier) => {
                 // TODO include types in bindings in scope
                 // TODO wrap this in a function that does this lookup and verifies against some type, returning a basic value
                 // That we can then turn into the type we want with another helper function that will try to do that
@@ -305,25 +305,25 @@ impl<'ctx> CodeGen<'ctx> {
                     Err(CodegenError::Temp("Variable lookup failed".to_string()))
                 }
             }
-            Expr::BinOp(l, op, r) => {
+            ast::Expr::BinOp(l, op, r) => {
                 let left = self.int_expr_build(l, program)?;
                 let right = self.int_expr_build(r, program)?;
                 match op {
-                    BinOpcode::Add => {
+                    ast::BinOpcode::Add => {
                         info!("making a binop add");
                         self.builder
                             .build_int_add(left, right, "binop-add-temp")
                             .map_err(CodegenError::from)
                     }
-                    BinOpcode::Sub => self
+                    ast::BinOpcode::Sub => self
                         .builder
                         .build_int_sub(left, right, "binop-sub-temp")
                         .map_err(CodegenError::from),
-                    BinOpcode::Mul => self
+                    ast::BinOpcode::Mul => self
                         .builder
                         .build_int_mul(left, right, "binop-mul-temp")
                         .map_err(CodegenError::from),
-                    BinOpcode::Div => self
+                    ast::BinOpcode::Div => self
                         .builder
                         .build_int_signed_div(left, right, "binop-div-temp")
                         .map_err(CodegenError::from),
@@ -338,11 +338,11 @@ impl<'ctx> CodeGen<'ctx> {
         }
     }
 
-    fn bool_expr_build(&self, expr: Box<Expr>) -> Result<IntValue, CodegenError> {
+    fn bool_expr_build(&self, expr: Box<ast::Expr>) -> Result<IntValue, CodegenError> {
         match *expr {
-            Expr::Bool(true) => Ok(self.bool_type.const_int(1, false)),
-            Expr::Bool(false) => Ok(self.bool_type.const_int(0, false)),
-            Expr::Id(identifier) => Err(CodegenError::NotImplemented(
+            ast::Expr::Bool(true) => Ok(self.bool_type.const_int(1, false)),
+            ast::Expr::Bool(false) => Ok(self.bool_type.const_int(0, false)),
+            ast::Expr::Id(identifier) => Err(CodegenError::NotImplemented(
                 "not implemented yet".to_string(),
             )),
             _ => Err(CodegenError::NotImplemented(
@@ -352,7 +352,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 }
 
-pub fn emit(arith_expr: Box<Expr>) -> Result<(), CodegenError> {
+pub fn emit(arith_expr: Box<ast::Expr>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let codegen = CodeGen::new(&context);
     codegen.main_build(arith_expr)
@@ -564,7 +564,10 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(Statement::Decl("a".to_string(), Box::new(Type::Int))),
+            Box::new(ast::Statement::Decl(
+                "a".to_string(),
+                Box::new(ast::Type::Int),
+            )),
             &mut program,
         ) {
             Ok(_) => {}
@@ -576,7 +579,10 @@ mod codegen_tests {
 
         // Do the assignment, for "a" that was found in scope
         match codegen.statement_build(
-            Box::new(Statement::Assign("a".to_string(), Box::new(Expr::Int(3)))),
+            Box::new(ast::Statement::Assign(
+                "a".to_string(),
+                Box::new(ast::Expr::Int(3)),
+            )),
             &mut program,
         ) {
             Ok(_) => {}
@@ -607,20 +613,20 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(Statement::If(
+            Box::new(ast::Statement::If(
                 CondBlock(
-                    Box::new(Expr::Bool(true)),
-                    Box::new(Statement::Init(
+                    Box::new(ast::Expr::Bool(true)),
+                    Box::new(ast::Statement::Init(
                         "a".to_string(),
-                        Box::new(Type::Int),
-                        Box::new(Expr::Int(3)),
+                        Box::new(ast::Type::Int),
+                        Box::new(ast::Expr::Int(3)),
                     )),
                 ),
                 Vec::new(),
-                Some(Box::new(Statement::Init(
+                Some(Box::new(ast::Statement::Init(
                     "b".to_string(),
-                    Box::new(Type::Int),
-                    Box::new(Expr::Int(3)),
+                    Box::new(ast::Type::Int),
+                    Box::new(ast::Expr::Int(3)),
                 ))),
             )),
             &mut program,
