@@ -1,4 +1,4 @@
-use crate::ast::{ASTFunc, ASTStatement, Expr};
+use crate::ast::{Expr, Func, Statement};
 use lalrpop_util::{lalrpop_mod, lexer::Token, ParseError};
 
 lalrpop_mod!(pub bassoon);
@@ -12,12 +12,12 @@ pub fn parse_expr(input: &str) -> Result<Box<Expr>, LexerError> {
     bassoon::ExprParser::new().parse(&mut errors, input)
 }
 
-pub fn _parse_statement(input: &str) -> Result<Box<ASTStatement>, LexerError> {
+pub fn _parse_statement(input: &str) -> Result<Box<Statement>, LexerError> {
     let mut errors = Vec::new();
     bassoon::StatementParser::new().parse(&mut errors, input)
 }
 
-pub fn _parse_function(input: &str) -> Result<Box<ASTFunc>, LexerError> {
+pub fn _parse_function(input: &str) -> Result<Box<Func>, LexerError> {
     let mut errors = Vec::new();
     bassoon::FunctionParser::new().parse(&mut errors, input)
 }

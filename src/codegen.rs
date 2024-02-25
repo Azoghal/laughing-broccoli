@@ -11,7 +11,7 @@ use tracing::{error, info};
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ast::{ASTFunc, ASTStatement, ASTType, BinOpcode, Expr};
+use crate::ast::{BinOpcode, Expr, Func, Statement, Type};
 
 #[derive(Debug)]
 pub enum CodegenError {
@@ -172,11 +172,11 @@ impl<'ctx> CodeGen<'ctx> {
     // TODO sort out return type for success - what even is it?
     fn statement_build(
         &self,
-        statement: Box<ASTStatement>,
+        statement: Box<Statement>,
         program: &mut Program<'ctx>,
     ) -> Result<(), CodegenError> {
         match *statement {
-            ASTStatement::Assign(identifier, expr) => {
+            Statement::Assign(identifier, expr) => {
                 let Some(alloca) = program.scope.reference_lookup(identifier) else {
                     return Err(CodegenError::Scope(
                         "Trying to reference a variable that is not in scope".to_string(),
@@ -190,7 +190,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .map_err(CodegenError::from)?;
                 Ok(())
             }
-            ASTStatement::Decl(identifier, typ) => {
+            Statement::Decl(identifier, typ) => {
                 // make alloca
                 // TODO update alloca name?
                 let alloca = self
@@ -201,7 +201,7 @@ impl<'ctx> CodeGen<'ctx> {
                 program.scope.add_to_scope(identifier, alloca)?;
                 Ok(())
             }
-            ASTStatement::Init(identifier, typ, expr) => {
+            Statement::Init(identifier, typ, expr) => {
                 // make alloca
                 let alloca = self
                     .builder
@@ -217,7 +217,7 @@ impl<'ctx> CodeGen<'ctx> {
                     .map_err(CodegenError::from)?;
                 Ok(())
             }
-            ASTStatement::If(iff, elsif_conds, els) => {
+            Statement::If(iff, elsif_conds, els) => {
                 let cond_val = self.bool_expr_build(iff.0);
 
                 let comp_res = self
@@ -564,7 +564,7 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(ASTStatement::Decl("a".to_string(), Box::new(ASTType::Int))),
+            Box::new(Statement::Decl("a".to_string(), Box::new(Type::Int))),
             &mut program,
         ) {
             Ok(_) => {}
@@ -576,10 +576,7 @@ mod codegen_tests {
 
         // Do the assignment, for "a" that was found in scope
         match codegen.statement_build(
-            Box::new(ASTStatement::Assign(
-                "a".to_string(),
-                Box::new(Expr::Int(3)),
-            )),
+            Box::new(Statement::Assign("a".to_string(), Box::new(Expr::Int(3)))),
             &mut program,
         ) {
             Ok(_) => {}
@@ -610,19 +607,19 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(ASTStatement::If(
+            Box::new(Statement::If(
                 CondBlock(
                     Box::new(Expr::Bool(true)),
-                    Box::new(ASTStatement::Init(
+                    Box::new(Statement::Init(
                         "a".to_string(),
-                        Box::new(ASTType::Int),
+                        Box::new(Type::Int),
                         Box::new(Expr::Int(3)),
                     )),
                 ),
                 Vec::new(),
-                Some(Box::new(ASTStatement::Init(
+                Some(Box::new(Statement::Init(
                     "b".to_string(),
-                    Box::new(ASTType::Int),
+                    Box::new(Type::Int),
                     Box::new(Expr::Int(3)),
                 ))),
             )),

@@ -1,32 +1,27 @@
 use std::fmt::{Debug, Display, Error, Formatter};
 
-pub struct CondBlock(pub Box<Expr>, pub Box<ASTStatement>);
+pub struct CondBlock(pub Box<Expr>, pub Box<Statement>);
 
 // TODO add Error?
-// TODO turn (Box<Expr>, Box<ASTStatement>) into a conditioned-block type or something
-pub enum ASTStatement {
-    CodeBlock(Vec<Box<ASTStatement>>),
+// TODO turn (Box<Expr>, Box<Statement>) into a conditioned-block type or something
+pub enum Statement {
+    CodeBlock(Vec<Box<Statement>>),
     Assign(String, Box<Expr>),
-    Decl(String, Box<ASTType>),
-    Init(String, Box<ASTType>, Box<Expr>),
-    If(CondBlock, Vec<CondBlock>, Option<Box<ASTStatement>>),
-    While(Box<Expr>, Box<ASTStatement>),
-    For(
-        Box<ASTStatement>,
-        Box<Expr>,
-        Box<ASTStatement>,
-        Box<ASTStatement>,
-    ),
+    Decl(String, Box<Type>),
+    Init(String, Box<Type>, Box<Expr>),
+    If(CondBlock, Vec<CondBlock>, Option<Box<Statement>>),
+    While(Box<Expr>, Box<Statement>),
+    For(Box<Statement>, Box<Expr>, Box<Statement>, Box<Statement>),
     Return(Box<Expr>),
 }
 
 // Can add e.g. lambdas here?
 // Is it good practice to take a vec of AST statements when only one of the enum variants is valid?
-pub enum ASTFunc {
-    Func(String, ASTArgs, Option<Box<ASTType>>, Box<ASTStatement>),
+pub enum Func {
+    Func(String, Args, Option<Box<Type>>, Box<Statement>),
 }
 
-pub struct ASTArgs(pub Vec<Box<ASTStatement>>);
+pub struct Args(pub Vec<Box<Statement>>);
 
 // TODO actually parse bool literals
 pub enum Expr {
@@ -43,7 +38,7 @@ pub enum Expr {
     Error,
 }
 
-pub enum ASTType {
+pub enum Type {
     Int,
     Float,
     Custom(String),
@@ -75,9 +70,9 @@ pub enum SfxOpcode {
 
 // Debug impls
 
-impl Debug for ASTFunc {
+impl Debug for Func {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        use self::ASTFunc::*;
+        use self::Func::*;
         match self {
             Func(ref name, args, ret_type, body) => {
                 let r = match ret_type {
@@ -90,9 +85,9 @@ impl Debug for ASTFunc {
     }
 }
 
-impl Debug for ASTArgs {
+impl Debug for Args {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        let ASTArgs(bob) = self;
+        let Args(bob) = self;
         let args: Vec<String> = bob
             .iter()
             .map(|s| format!("{:?}", s).trim_end_matches(';').to_string())
@@ -110,9 +105,9 @@ impl Display for CondBlock {
     }
 }
 
-impl Debug for ASTStatement {
+impl Debug for Statement {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        use self::ASTStatement::*;
+        use self::Statement::*;
         match self {
             CodeBlock(stmts) => {
                 write!(fmt, "{{ {:?} }}", stmts)
@@ -156,9 +151,9 @@ impl Debug for Expr {
     }
 }
 
-impl Debug for ASTType {
+impl Debug for Type {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-        use self::ASTType::*;
+        use self::Type::*;
         match *self {
             Int => write!(fmt, "t:Int"),
             Float => write!(fmt, "t:Float"),
