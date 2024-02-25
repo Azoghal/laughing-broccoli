@@ -2,13 +2,14 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::types::{FloatType, IntType};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, FloatType, IntType};
 use inkwell::values::{
     AnyValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue,
 };
 use tracing::{error, info};
 
 use std::collections::HashMap;
+use std::f32::consts::E;
 use std::fmt;
 
 use crate::ast;
@@ -144,42 +145,76 @@ impl<'ctx> CodeGen<'ctx> {
         function.print_to_string().to_string()
     }
 
-    fn fn_build(&self, f: Box<ast::Func>) -> Result<(), CodegenError> {
-        Err(CodegenError::NotImplemented(
-            "fn_build not implmented".to_string(),
-        ))
+    // get_func_type taks ast::Args and an optional return ast::Type and returns the appropriate inkwell function type
+    fn get_func_type<'a>(
+        &self,
+        args: ast::Args,
+        typ: Option<Box<ast::Type>>,
+    ) -> Result<inkwell::types::FunctionType<'a>, CodegenError>
+    where
+        'ctx: 'a, // TODO review whethere this is proper or whether i just did this to make the squigly lines go away
+    {
+        // TODO also rework the parser as these arguments should not be considered statements
+        let ast::Args(arg_vec) = args;
+        let param_typessss: Result<Vec<BasicMetadataTypeEnum>, CodegenError> = arg_vec
+            .into_iter()
+            .map(|arg| match *arg {
+                ast::Statement::Decl(_, arg_type) => match *arg_type {
+                    ast::Type::Int => Ok(BasicMetadataTypeEnum::IntType(self.i32_type)),
+                    ast::Type::Float => Ok(BasicMetadataTypeEnum::FloatType(self.f32_type)),
+                    ast::Type::Custom(_) => Err(CodegenError::NotImplemented(
+                        "custom function arg types".to_string(),
+                    )),
+                },
+                _ => Err(CodegenError::Temp(
+                    "declared arguments to a function must be decl".to_string(),
+                )),
+            })
+            .collect();
+
+        let param_typessssssss = param_typessss?;
+
+        // todo construct the lost of param types
+        let param_types = &param_typessssssss;
+
+        match typ {
+            Some(ret_type) => match *ret_type {
+                ast::Type::Int => Ok(self.i32_type.fn_type(param_types, false)),
+                ast::Type::Float => Ok(self.f32_type.fn_type(param_types, false)),
+                ast::Type::Custom(_) => Err(CodegenError::NotImplemented(
+                    "function custom return type".to_string(),
+                )),
+            },
+            None => Ok(self.i32_type.fn_type(param_types, false)),
+        }
     }
 
-    // Starts a main function that returns an i32
-    fn expr_build(&self, arith: Box<ast::Expr>) -> Result<(), CodegenError> {
-        let fn_type = self.i32_type.fn_type(&[], false);
-        let function = self.module.add_function("main", fn_type, None);
+    fn fn_build(&self, f: ast::Func, program: &mut Program<'ctx>) -> Result<(), CodegenError> {
+        // TODO return type and param types from ast func struct
+
+        let ast::Func::Func(name, args, typ, body) = f;
+
+        let fn_type = self.get_func_type(args, typ)?;
+        let function = self.module.add_function(&name, fn_type, None);
         let basic_block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(basic_block);
+        program.current_function = name;
 
-        let mut program = Program {
-            scope: BassoonScope::new(),
-            current_function: function.get_name().to_str().unwrap().to_string(),
-        };
+        // TODO bind function arguments here
 
         // build an arithmetic expression
-        if let Ok(val) = self.int_expr_build(arith, &mut program) {
-            self.builder.build_return(Some(&val)).unwrap();
-        } else {
-            self.builder.build_return(None).unwrap();
-        }
+        self.statement_build(*body, program)?;
 
         self.print_llvm_function(function);
         Ok(())
     }
 
-    // TODO sort out return type for success - what even is it?
     fn statement_build(
         &self,
-        statement: Box<ast::Statement>,
+        statement: ast::Statement,
         program: &mut Program<'ctx>,
     ) -> Result<(), CodegenError> {
-        match *statement {
+        match statement {
             ast::Statement::Assign(identifier, expr) => {
                 let Some(alloca) = program.scope.reference_lookup(identifier) else {
                     return Err(CodegenError::Scope(
@@ -250,7 +285,7 @@ impl<'ctx> CodeGen<'ctx> {
                 };
                 let if_block = self.context.append_basic_block(current_function, "if");
                 self.builder.position_at_end(if_block);
-                self.statement_build(iff.1, program)?;
+                self.statement_build(*iff.1, program)?;
 
                 // TODO don't forget to loop and do the same as above for any else ifs
 
@@ -261,7 +296,7 @@ impl<'ctx> CodeGen<'ctx> {
                 self.builder.position_at_end(else_block);
                 // If we have an else body, build it, otherwise this is the empty basic block that failing all if condition jumps to
                 if let Some(st) = els {
-                    self.statement_build(st, program)?;
+                    self.statement_build(*st, program)?;
                 }
 
                 self.builder.position_at_end(top_level_block);
@@ -270,6 +305,17 @@ impl<'ctx> CodeGen<'ctx> {
                     .map_err(CodegenError::from)?;
 
                 Ok(())
+            }
+            ast::Statement::Return(exp) => {
+                let expr_val = self.int_expr_build(exp, program)?;
+                self.builder.build_return(Some(&expr_val))?;
+                Ok(())
+            }
+            ast::Statement::CodeBlock(statements) => {
+                let block_built_res: Result<(), CodegenError> = statements
+                    .into_iter()
+                    .try_for_each(|statement| self.statement_build(*statement, program));
+                block_built_res
             }
             _ => Err(CodegenError::NotImplemented(
                 "Non assign, decl, init statement".to_string(),
@@ -357,7 +403,7 @@ impl<'ctx> CodeGen<'ctx> {
 }
 
 // TODO update to take an ast::Func and then eventually an ast::Program
-pub fn emit(statement: Box<ast::Statement>) -> Result<(), CodegenError> {
+pub fn emit(func: Box<ast::Func>) -> Result<(), CodegenError> {
     let context: Context = Context::create();
     let codegen = CodeGen::new(&context, "main");
 
@@ -365,7 +411,7 @@ pub fn emit(statement: Box<ast::Statement>) -> Result<(), CodegenError> {
         scope: BassoonScope::new(),
         current_function: "main".to_string(),
     };
-    codegen.statement_build(statement, &mut program)
+    codegen.fn_build(*func, &mut program)
 }
 
 #[cfg(test)]
@@ -554,7 +600,7 @@ mod codegen_tests {
             panic!()
         };
 
-        match codegen.statement_build(statement, &mut program) {
+        match codegen.statement_build(*statement, &mut program) {
             Ok(_) => {}
             Err(e) => {
                 println!("failed {:?}", e);
@@ -575,10 +621,7 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(ast::Statement::Decl(
-                "a".to_string(),
-                Box::new(ast::Type::Int),
-            )),
+            ast::Statement::Decl("a".to_string(), Box::new(ast::Type::Int)),
             &mut program,
         ) {
             Ok(_) => {}
@@ -590,10 +633,7 @@ mod codegen_tests {
 
         // Do the assignment, for "a" that was found in scope
         match codegen.statement_build(
-            Box::new(ast::Statement::Assign(
-                "a".to_string(),
-                Box::new(ast::Expr::Int(3)),
-            )),
+            ast::Statement::Assign("a".to_string(), Box::new(ast::Expr::Int(3))),
             &mut program,
         ) {
             Ok(_) => {}
@@ -624,7 +664,7 @@ mod codegen_tests {
 
         // Add a declaration, includes "a" in scope
         match codegen.statement_build(
-            Box::new(ast::Statement::If(
+            ast::Statement::If(
                 ast::CondBlock(
                     Box::new(ast::Expr::Bool(true)),
                     Box::new(ast::Statement::Init(
@@ -639,7 +679,7 @@ mod codegen_tests {
                     Box::new(ast::Type::Int),
                     Box::new(ast::Expr::Int(3)),
                 ))),
-            )),
+            ),
             &mut program,
         ) {
             Ok(_) => {}
