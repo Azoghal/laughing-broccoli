@@ -22,16 +22,18 @@ fn main() {
 
     let _args = Args::parse();
 
-    info!("Doing some parsing");
+    let prog_string = "define bob() as {b of int = 2 + 1;}";
 
-    match parser::parse_function("define bob() as {b of int = 2 + 1;}") {
+    info!("Parsing {prog_string}");
+
+    match parser::parse_function(prog_string) {
         Err(err) => {
-            error!("Done failed to parse an expression: {err}");
+            error!("Failed to parse: {err}");
         }
-        Ok(arith_expr) => {
-            info!("Doing some codegen-ing");
-            if let Err(err) = codegen::emit(arith_expr) {
-                error!("Done failed to code gen {err}");
+        Ok(func) => {
+            info!("Codegen-ing");
+            if let Err(err) = codegen::emit(*func) {
+                error!("Failed to code gen {err}");
             };
         }
     };

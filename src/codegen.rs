@@ -18,11 +18,18 @@ pub enum CodegenError {
     Builder(BuilderError),
     NotImplemented(String),
     Scope(String),
+    Utf8(String),
 }
 
 impl From<BuilderError> for CodegenError {
     fn from(value: BuilderError) -> Self {
         Self::Builder(value)
+    }
+}
+
+impl From<std::str::Utf8Error> for CodegenError {
+    fn from(value: std::str::Utf8Error) -> Self {
+        Self::Utf8(value.to_string())
     }
 }
 
@@ -33,6 +40,7 @@ impl fmt::Display for CodegenError {
             Self::Builder(b_err) => write!(f, "A builder error {:?}", b_err),
             Self::NotImplemented(msg) => write!(f, "codegen not implemented for {msg}"),
             Self::Scope(msg) => write!(f, "scoping issue: {msg}"),
+            Self::Utf8(msg) => write!(f, "string conversion issue: {msg}"),
         }
     }
 }
@@ -255,13 +263,13 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(())
             }
             ast::Statement::If(iff, elsif_conds, els) => {
-                let cond_val = self.bool_expr_build(*iff.0);
+                let cond_val = self.bool_expr_build(*iff.0)?;
 
                 let comp_res = self
                     .builder
                     .build_int_compare(
                         inkwell::IntPredicate::EQ,
-                        cond_val.unwrap(),
+                        cond_val,
                         self.bool_type.const_int(1, false),
                         "bool-comp",
                     )
@@ -305,11 +313,13 @@ impl<'ctx> CodeGen<'ctx> {
                 Ok(())
             }
             ast::Statement::Return(exp) => {
+                // TODO This is borked
                 let expr_val = self.int_expr_build(*exp, program)?;
                 self.builder.build_return(Some(&expr_val))?;
                 Ok(())
             }
             ast::Statement::CodeBlock(statements) => {
+                // TODO actually wack this into a new basic block?
                 let block_built_res: Result<(), CodegenError> = statements
                     .into_iter()
                     .try_for_each(|statement| self.statement_build(*statement, program));
@@ -336,15 +346,13 @@ impl<'ctx> CodeGen<'ctx> {
                 // That we can then turn into the type we want with another helper function that will try to do that
                 if let Some(val) = program.scope.reference_lookup(identifier) {
                     match val.as_basic_value_enum() {
-                        //TODO remove unwrap
-                        BasicValueEnum::PointerValue(v) => Ok(self
-                            .builder
-                            .build_load(
-                                v,
-                                format!("load-int-{}", v.get_name().to_str().unwrap()).as_str(),
-                            )
-                            .unwrap()
-                            .into_int_value()),
+                        BasicValueEnum::PointerValue(v) => {
+                            let name = v.get_name().to_str()?;
+                            let load = self
+                                .builder
+                                .build_load(v, format!("load-int-{}", name).as_str())?;
+                            Ok(load.into_int_value())
+                        }
                         _ => Err(CodegenError::NotImplemented(
                             "Not implemented loads for non-ints yet".to_string(),
                         )),
@@ -359,22 +367,19 @@ impl<'ctx> CodeGen<'ctx> {
                 match op {
                     ast::BinOpcode::Add => {
                         info!("making a binop add");
-                        self.builder
-                            .build_int_add(left, right, "binop-add-temp")
-                            .map_err(CodegenError::from)
+                        Ok(self.builder.build_int_add(left, right, "binop-add-temp")?)
                     }
-                    ast::BinOpcode::Sub => self
-                        .builder
-                        .build_int_sub(left, right, "binop-sub-temp")
-                        .map_err(CodegenError::from),
-                    ast::BinOpcode::Mul => self
-                        .builder
-                        .build_int_mul(left, right, "binop-mul-temp")
-                        .map_err(CodegenError::from),
-                    ast::BinOpcode::Div => self
-                        .builder
-                        .build_int_signed_div(left, right, "binop-div-temp")
-                        .map_err(CodegenError::from),
+                    ast::BinOpcode::Sub => {
+                        Ok(self.builder.build_int_sub(left, right, "binop-sub-temp")?)
+                    }
+                    ast::BinOpcode::Mul => {
+                        Ok(self.builder.build_int_mul(left, right, "binop-mul-temp")?)
+                    }
+                    ast::BinOpcode::Div => {
+                        Ok(self
+                            .builder
+                            .build_int_signed_div(left, right, "binop-div-temp")?)
+                    }
                     _ => Err(CodegenError::Temp(
                         "Not an int operation so can't do it".to_string(),
                     )),
